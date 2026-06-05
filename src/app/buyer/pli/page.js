@@ -181,7 +181,7 @@ export default function BuyerPLIDashboard() {
           customer: first['Customer'],
           quarter: first['PLI Quarter'],
           category: first['Purchase Group'],
-          buyerName: 'Sanjay Kumar',
+          buyerName: buyerName,
           items: items,
         });
 
