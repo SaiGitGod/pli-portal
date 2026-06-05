@@ -54,7 +54,7 @@ export default function LoginPage() {
           <div className="text-center animate-fade-in">
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-10 border border-white/20 shadow-2xl">
               <h1 className="font-display text-3xl font-bold text-white mb-2 tracking-tight">PLI</h1>
-              <p className="text-white/60 text-sm mb-10">Price List Information Portal</p>
+              <p className="text-white/60 text-sm mb-10">Production Linked Incentive Portal</p>
               <div className="space-y-3">
                 <button onClick={() => { setRole('buyer'); setStep('login'); }} className="w-full flex items-center justify-center gap-3 bg-white/15 hover:bg-white/25 text-white rounded-lg px-6 py-3.5 font-medium transition-all duration-200 border border-white/20 hover:border-white/40">
                   <LogIn size={18} />Login as Buyer
