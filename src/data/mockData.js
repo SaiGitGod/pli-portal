@@ -12,7 +12,7 @@ export const quarters = ['Q1FY2526', 'Q2FY2526', 'Q3FY2526', 'Q4FY2526'];
 
 export const pliRequests = [
   {
-    id: 'REQ-2026-02-19-022', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '5100', noOfItems: 4, requestDate: '2026-02-19', status: 'Pending Submission', pliName: 'TATA_Q3FY2526_BU_26_15', customer: 'TATA', quarter: 'Q3FY2526', category: 'Electrical', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-19-022', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '5100', noOfItems: 4, requestDate: '2026-02-19', status: 'Pending Submission', pliName: 'TATA_Q3FY2526_BU_26_15', customer: 'TATA', quarter: 'Q3FY2526', category: 'Electrical', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-001', plant: '5100', componentCode: 'B00019000001', componentDescription: 'ADHESIVE ANABOND-221 SI 001 600001', uom: 'KG', effectiveQuarter: 'Q3FY2526', effectiveRate: 3500.0, status: 'Pending Submission' },
       { id: 'ITEM-002', plant: '5100', componentCode: 'B00019000002', componentDescription: 'ADHESIVE ANABOND-221 SI 001 600002', uom: 'KG', effectiveQuarter: 'Q3FY2526', effectiveRate: 3000.0, status: 'Pending Submission' },
@@ -21,7 +21,7 @@ export const pliRequests = [
     ],
   },
   {
-    id: 'REQ-2026-02-19-023', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 4, requestDate: '2026-02-19', status: 'Submitted', pliName: 'TATA_Q3FY2526_BU_26_14', customer: 'TATA', quarter: 'Q3FY2526', category: 'Electrical', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-19-023', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 4, requestDate: '2026-02-19', status: 'Submitted', pliName: 'TATA_Q3FY2526_BU_26_14', customer: 'TATA', quarter: 'Q3FY2526', category: 'Electrical', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-005', plant: '1900', componentCode: 'B00019000005', componentDescription: 'RELAY MODULE 24V DC', uom: 'NOS', effectiveQuarter: 'Q3FY2526', effectiveRate: 890.0, status: 'Submitted' },
       { id: 'ITEM-006', plant: '1900', componentCode: 'B00019000006', componentDescription: 'FUSE HOLDER BLADE TYPE', uom: 'NOS', effectiveQuarter: 'Q3FY2526', effectiveRate: 125.0, status: 'Submitted' },
@@ -30,7 +30,7 @@ export const pliRequests = [
     ],
   },
   {
-    id: 'REQ-2026-02-19-020', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '5100', noOfItems: 4, requestDate: '2026-02-19', status: 'Pending Submission', pliName: 'TATA_Q3FY2526_BU_26_13', customer: 'TATA', quarter: 'Q3FY2526', category: 'Molding', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-19-020', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '5100', noOfItems: 4, requestDate: '2026-02-19', status: 'Pending Submission', pliName: 'TATA_Q3FY2526_BU_26_13', customer: 'TATA', quarter: 'Q3FY2526', category: 'Molding', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-009', plant: '5100', componentCode: 'M00019000001', componentDescription: 'HOUSING MOLD UPPER PART A', uom: 'NOS', effectiveQuarter: 'Q3FY2526', effectiveRate: 2800.0, status: 'Pending Submission' },
       { id: 'ITEM-010', plant: '5100', componentCode: 'M00019000002', componentDescription: 'HOUSING MOLD LOWER PART B', uom: 'NOS', effectiveQuarter: 'Q3FY2526', effectiveRate: 2650.0, status: 'Pending Submission' },
@@ -39,7 +39,7 @@ export const pliRequests = [
     ],
   },
   {
-    id: 'REQ-2026-02-19-021', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 4, requestDate: '2026-02-19', status: 'Submitted', pliName: 'TATA_Q3FY2526_BU_26_12', customer: 'TATA', quarter: 'Q3FY2526', category: 'SM&F', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-19-021', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 4, requestDate: '2026-02-19', status: 'Submitted', pliName: 'TATA_Q3FY2526_BU_26_12', customer: 'TATA', quarter: 'Q3FY2526', category: 'SM&F', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-013', plant: '1900', componentCode: 'S00019000001', componentDescription: 'BRACKET MOUNTING STEEL 3MM', uom: 'NOS', effectiveQuarter: 'Q3FY2526', effectiveRate: 560.0, status: 'Submitted' },
       { id: 'ITEM-014', plant: '1900', componentCode: 'S00019000002', componentDescription: 'PLATE BASE MILD STEEL 5MM', uom: 'KG', effectiveQuarter: 'Q3FY2526', effectiveRate: 180.0, status: 'Submitted' },
@@ -48,42 +48,42 @@ export const pliRequests = [
     ],
   },
   {
-    id: 'REQ-2026-02-19-019', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 8, requestDate: '2026-02-18', status: 'Closed', pliName: 'TATA_Q3FY2526_BU_26_11', customer: 'TATA', quarter: 'Q3FY2526', category: 'Electrical', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-19-019', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 8, requestDate: '2026-02-18', status: 'Closed', pliName: 'TATA_Q3FY2526_BU_26_11', customer: 'TATA', quarter: 'Q3FY2526', category: 'Electrical', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-017', plant: '1900', componentCode: 'B00019000009', componentDescription: 'SWITCH TOGGLE DPDT 15A', uom: 'NOS', effectiveQuarter: 'Q3FY2526', effectiveRate: 275.0, status: 'Closed' },
       { id: 'ITEM-018', plant: '1900', componentCode: 'B00019000010', componentDescription: 'LED INDICATOR PANEL 12V RED', uom: 'NOS', effectiveQuarter: 'Q3FY2526', effectiveRate: 95.0, status: 'Closed' },
     ],
   },
   {
-    id: 'REQ-2026-02-18-018', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 8, requestDate: '2026-02-18', status: 'Submitted', pliName: 'TATA_Q3FY2526_BU_26_10', customer: 'TATA', quarter: 'Q3FY2526', category: 'SM&F', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-18-018', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 8, requestDate: '2026-02-18', status: 'Submitted', pliName: 'TATA_Q3FY2526_BU_26_10', customer: 'TATA', quarter: 'Q3FY2526', category: 'SM&F', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-019', plant: '1900', componentCode: 'S00019000005', componentDescription: 'ANGLE IRON L50X50X5', uom: 'KG', effectiveQuarter: 'Q3FY2526', effectiveRate: 85.0, status: 'Submitted' },
       { id: 'ITEM-020', plant: '1900', componentCode: 'S00019000006', componentDescription: 'PIPE ROUND MS 25MM DIA', uom: 'MTR', effectiveQuarter: 'Q3FY2526', effectiveRate: 210.0, status: 'Submitted' },
     ],
   },
   {
-    id: 'REQ-2026-02-18-017', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 8, requestDate: '2026-02-18', status: 'Pending Submission', pliName: 'TATA_Q2FY2526_BU_26_9', customer: 'TATA', quarter: 'Q2FY2526', category: 'Molding', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-18-017', vendorCode: 'CCJ0040', vendorName: 'JOSTS ENGINEERING COMPANY', plant: '1900', noOfItems: 8, requestDate: '2026-02-18', status: 'Pending Submission', pliName: 'TATA_Q2FY2526_BU_26_9', customer: 'TATA', quarter: 'Q2FY2526', category: 'Molding', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-021', plant: '1900', componentCode: 'M00019000005', componentDescription: 'COVER CAP INJECTION MOLD', uom: 'NOS', effectiveQuarter: 'Q2FY2526', effectiveRate: 420.0, status: 'Pending Submission' },
       { id: 'ITEM-022', plant: '1900', componentCode: 'M00019000006', componentDescription: 'SEAL RING SILICONE 30MM', uom: 'NOS', effectiveQuarter: 'Q2FY2526', effectiveRate: 65.0, status: 'Pending Submission' },
     ],
   },
   {
-    id: 'REQ-2026-02-18-016', vendorCode: 'CSS0905', vendorName: 'SHREE SWAMI ENTERPRISES', plant: '1900', noOfItems: 4, requestDate: '2026-02-18', status: 'Cancelled', pliName: 'TATA_Q2FY2526_BU_26_8', customer: 'TATA', quarter: 'Q2FY2526', category: 'SM&F', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-18-016', vendorCode: 'CSS0905', vendorName: 'SHREE SWAMI ENTERPRISES', plant: '1900', noOfItems: 4, requestDate: '2026-02-18', status: 'Cancelled', pliName: 'TATA_Q2FY2526_BU_26_8', customer: 'TATA', quarter: 'Q2FY2526', category: 'SM&F', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-023', plant: '1900', componentCode: 'S00019000007', componentDescription: 'HINGE HEAVY DUTY 100MM', uom: 'NOS', effectiveQuarter: 'Q2FY2526', effectiveRate: 320.0, status: 'Cancelled' },
       { id: 'ITEM-024', plant: '1900', componentCode: 'S00019000008', componentDescription: 'LATCH TOGGLE CLAMP GH201', uom: 'NOS', effectiveQuarter: 'Q2FY2526', effectiveRate: 450.0, status: 'Cancelled' },
     ],
   },
   {
-    id: 'REQ-2026-02-18-015', vendorCode: 'CSS0904', vendorName: 'SN WATER SOLUTIONS', plant: '1900', noOfItems: 4, requestDate: '2026-02-18', status: 'Cancelled', pliName: 'TATA_Q2FY2526_BU_26_7', customer: 'TATA', quarter: 'Q2FY2526', category: 'Electrical', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-18-015', vendorCode: 'CSS0904', vendorName: 'SN WATER SOLUTIONS', plant: '1900', noOfItems: 4, requestDate: '2026-02-18', status: 'Cancelled', pliName: 'TATA_Q2FY2526_BU_26_7', customer: 'TATA', quarter: 'Q2FY2526', category: 'Electrical', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-025', plant: '1900', componentCode: 'B00019000011', componentDescription: 'PUMP MOTOR 0.5HP SUBMERSIBLE', uom: 'NOS', effectiveQuarter: 'Q2FY2526', effectiveRate: 8500.0, status: 'Cancelled' },
       { id: 'ITEM-026', plant: '1900', componentCode: 'B00019000012', componentDescription: 'FLOAT SWITCH LEVEL SENSOR', uom: 'NOS', effectiveQuarter: 'Q2FY2526', effectiveRate: 650.0, status: 'Cancelled' },
     ],
   },
   {
-    id: 'REQ-2026-02-18-014', vendorCode: 'CSS0905', vendorName: 'SHREE SWAMI ENTERPRISES', plant: '1900', noOfItems: 4, requestDate: '2026-02-13', status: 'Pending Submission', pliName: 'Birla_Q2FY2526_BU_25_135', customer: 'Birla', quarter: 'Q2FY2526', category: 'SM&F', buyerName: 'Sanjay Kumar',
+    id: 'REQ-2026-02-18-014', vendorCode: 'CSS0905', vendorName: 'SHREE SWAMI ENTERPRISES', plant: '1900', noOfItems: 4, requestDate: '2026-02-13', status: 'Pending Submission', pliName: 'Birla_Q2FY2526_BU_25_135', customer: 'Birla', quarter: 'Q2FY2526', category: 'SM&F', buyerName: 'buyer',,
     items: [
       { id: 'ITEM-027', plant: '1900', componentCode: 'S00019000009', componentDescription: 'SHAFT DRIVE STEEL EN8 25MM', uom: 'NOS', effectiveQuarter: 'Q2FY2526', effectiveRate: 1800.0, status: 'Pending Submission' },
       { id: 'ITEM-028', plant: '1900', componentCode: 'S00019000010', componentDescription: 'COUPLING RIGID FLANGE 25MM', uom: 'NOS', effectiveQuarter: 'Q2FY2526', effectiveRate: 950.0, status: 'Pending Submission' },
