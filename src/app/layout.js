@@ -2,7 +2,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'PLI Portal | Varroc',
-  description: 'Price List Information Portal for Vendor Connect',
+  description: 'Production Linked Incentive Portal for Vendor Connect',
 };
 
 export default function RootLayout({ children }) {
