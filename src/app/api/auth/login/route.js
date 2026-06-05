@@ -14,10 +14,17 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
+    // Extract display name from email: "sanjay.kumar@varroc.com" → "Sanjay Kumar"
+    const emailPrefix = username.split('@')[0];
+    const displayName = emailPrefix
+      .split(/[._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+
     const tokenPayload = {
       id: user.id,
       role: user.role,
-      name: user.name,
+      name: displayName,
       ...(user.vendorCode && { vendorCode: user.vendorCode, vendorName: user.vendorName }),
     };
 
