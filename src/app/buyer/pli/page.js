@@ -45,9 +45,20 @@ export default function BuyerPLIDashboard() {
   const [filters, setFilters] = useState({ requestId: '', vendorCode: '', vendorName: '', plant: '', noOfItems: '', requestDate: '', status: '' });
   const [page, setPage] = useState(1);
   const [notification, setNotification] = useState(null);
+  const [buyerName, setBuyerName] = useState('Buyer');
   const rowsPerPage = 25;
 
   useEffect(() => { fetchData(); }, [activeTile]);
+    useEffect(() => {
+    try {
+      const raw = document.cookie.split(';').find(c => c.trim().startsWith('pli-user='));
+      if (raw) {
+        const val = decodeURIComponent(raw.split('=').slice(1).join('='));
+        const parsed = JSON.parse(val);
+        setBuyerName(parsed.name || 'Buyer');
+      }
+    } catch {}
+  }, []);
 
   const fetchData = () => {
     fetch(`/api/buyer/pli?tile=${activeTile}`).then(res => res.json()).then(d => {
