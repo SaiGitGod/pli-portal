@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef } from 'react';
-import { X, Upload, FileSpreadsheet, AlertCircle } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { X, Upload, FileSpreadsheet, AlertCircle, Download } from 'lucide-react';
 
 export default function ImportExcelModal({ isOpen, onClose, onSubmit }) {
   const [file, setFile] = useState(null);
@@ -28,14 +29,8 @@ export default function ImportExcelModal({ isOpen, onClose, onSubmit }) {
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
     if (selected) {
-      if (selected.size > 5 * 1024 * 1024) {
-        alert('File size must not exceed 5 MB');
-        return;
-      }
-      if (!selected.name.endsWith('.xlsx') && !selected.name.endsWith('.xls')) {
-        alert('Only .xlsx and .xls files are allowed');
-        return;
-      }
+      if (selected.size > 5 * 1024 * 1024) { alert('File size must not exceed 5 MB'); return; }
+      if (!selected.name.endsWith('.xlsx') && !selected.name.endsWith('.xls')) { alert('Only .xlsx and .xls files are allowed'); return; }
       setFile(selected);
     }
   };
@@ -48,26 +43,28 @@ export default function ImportExcelModal({ isOpen, onClose, onSubmit }) {
     }
   };
 
+  const downloadTemplate = () => {
+    const headers = ['Customer', 'BU', 'Plant', 'Component (BO Code)', 'Component Description', 'Base Unit of Measure', 'Vendor Code', 'Vendor Name', 'PLI Quarter', 'Price (INR)', 'Purchase Group'];
+    const sampleRow = ['TATA', 'BU_26', '1900', 'B00019000001', 'ADHESIVE ANABOND-221 SI 001', 'KG', 'CCJ0040', 'JOSTS ENGINEERING COMPANY', 'Q3FY2526', '3500', 'Electrical'];
+    const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow]);
+    const colWidths = headers.map(h => ({ wch: Math.max(h.length + 5, 20) }));
+    ws['!cols'] = colWidths;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'PLI Template');
+    XLSX.writeFile(wb, 'PLI_Excel_Template.xlsx');
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 animate-fade-in" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <h3 className="font-display font-semibold text-slate-800">Import From Excel</h3>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg">
-            <X size={18} className="text-slate-400" />
-          </button>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X size={18} className="text-slate-400" /></button>
         </div>
 
         <div className="px-6 py-5">
-          <div
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-              dragActive ? 'border-blue-500 bg-blue-50' : 'border-slate-300 bg-slate-50'
-            }`}
-          >
+          <div onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-slate-300 bg-slate-50'}`}>
             {file ? (
               <div className="flex items-center gap-3 justify-center">
                 <FileSpreadsheet size={24} className="text-green-600" />
@@ -75,9 +72,7 @@ export default function ImportExcelModal({ isOpen, onClose, onSubmit }) {
                   <p className="text-sm font-medium text-slate-700">{file.name}</p>
                   <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
                 </div>
-                <button onClick={() => setFile(null)} className="ml-2 text-red-400 hover:text-red-600">
-                  <X size={16} />
-                </button>
+                <button onClick={() => setFile(null)} className="ml-2 text-red-400 hover:text-red-600"><X size={16} /></button>
               </div>
             ) : (
               <>
@@ -94,9 +89,8 @@ export default function ImportExcelModal({ isOpen, onClose, onSubmit }) {
               <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
               <div className="text-xs text-amber-700 space-y-1">
                 <p>Please upload .xlsx/.xls file only and minimum upload size is greater than 0 KB. Maximum upload size is 5 MB per document.</p>
-                <p>Download the <button className="text-blue-600 underline font-medium">PLI Excel Template</button> file here.</p>
+                <p>Download the <button onClick={downloadTemplate} className="text-blue-600 underline font-medium inline-flex items-center gap-1"><Download size={11} />PLI Excel Template</button> file here.</p>
                 <p>Excel file must contain only one Customer, one PLI Quarter, one BU, and one Vendor Code.</p>
-                <p><strong>Template columns:</strong> Customer, BU, Plant, Component (BO Code), Component Description, Base Unit of Measure, Vendor Code, Vendor Name, PLI Quarter, Price (INR), Purchase Group</p>
               </div>
             </div>
           </div>
