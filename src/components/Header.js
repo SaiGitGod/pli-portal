@@ -26,17 +26,22 @@ export default function Header() {
   return (
     <header className="header-gradient text-white shadow-lg">
       <div className="flex items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <h1 className="font-display text-xl font-bold tracking-tight">
-            <span className="text-teal-300">Effi</span>
-            <span className="text-white">GO</span>
+            <span className="text-white">VARROC</span>
+            <span className="text-teal-300 text-sm ml-2 font-normal">PLI Portal</span>
           </h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {user && (
+            <span className="text-white/70 text-sm hidden md:block">
+              {user.name} {user.role === 'vendor' && user.vendorCode ? `(${user.vendorCode})` : '(Buyer)'}
+            </span>
+          )}
           <button onClick={handleLogout} className="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Logout">
             <LogOut size={18} />
           </button>
-          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm font-bold">
+          <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-sm font-bold">
             {user?.name?.charAt(0) || 'U'}
           </div>
         </div>
