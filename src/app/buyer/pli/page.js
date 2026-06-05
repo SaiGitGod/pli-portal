@@ -5,6 +5,7 @@ import {
   Filter, ChevronRight, ChevronDown, Pencil, Trash2, Download, CheckCircle, XCircle,
   ListFilter, FileSpreadsheet, ArrowLeft, ChevronLeft, ChevronsLeft, ChevronsRight, Settings2
 } from 'lucide-react';
+import React from 'react';
 import CommentModal from '@/components/CommentModal';
 import ImportExcelModal from '@/components/ImportExcelModal';
 import EditFieldsPanel from '@/components/EditFieldsPanel';
