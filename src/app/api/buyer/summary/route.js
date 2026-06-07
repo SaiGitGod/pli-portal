@@ -1,19 +1,9 @@
 import { NextResponse } from 'next/server';
-import {
-  pliRequests, pliNames, vendorSummary,
-  getDashboardSummary, getPLIStatusOverview, getCategorySummary,
-} from '@/data/mockData';
+import { getDashboardData } from '@/lib/database';
 
 export async function GET() {
-  const summary = getDashboardSummary();
-  const pliStatus = getPLIStatusOverview();
-  const categorySummary = getCategorySummary();
-
-  return NextResponse.json({
-    summary,
-    pliStatus,
-    categorySummary,
-    pliSummary: pliNames,
-    vendorSummary,
-  });
+  const data = await getDashboardData();
+  return NextResponse.json(data);
 }
+
+export const dynamic = 'force-dynamic';
