@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { uploadFile } from '@/lib/fileStorage';
+import { put } from '@vercel/blob';
 
 export async function POST(request) {
   try {
     const formData = await request.formData();
     const file = formData.get('file');
     const requestId = formData.get('requestId') || 'unknown';
-    const fileType = formData.get('fileType') || 'signed-document';
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -17,21 +16,26 @@ export async function POST(request) {
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File size must not exceed 10 MB' }, { status: 400 });
+      return NextResponse.json({ error: 'File exceeds 10 MB' }, { status: 400 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const folder = 'pli-documents/' + requestId + '/' + fileType;
+    const fileName = file.name;
+    const path = 'pli-documents/' + requestId + '/' + Date.now() + '_' + fileName;
 
-    try {
-      const result = await uploadFile(buffer, file.name, folder);
-      return NextResponse.json({ success: true, fileName: result.fileName, fileUrl: result.url });
-    } catch (uploadErr) {
-      console.error('Upload to blob failed:', uploadErr);
-      return NextResponse.json({ error: 'Storage upload failed: ' + uploadErr.message }, { status: 500 });
-    }
+    const blob = await put(path, file, {
+      access: 'public'
+    });
+
+    return NextResponse.json({
+      success: true,
+      fileName: fileName,
+      fileUrl: blob.url
+    });
   } catch (error) {
-    console.error('Upload route error:', error);
-    return NextResponse.json({ error: 'Server error: ' + error.message }, { status: 500 });
+    console.error('Upload error details:', error);
+    return NextResponse.json({
+      error: 'Upload failed',
+      details: error.message || 'Unknown error'
+    }, { status: 500 });
   }
 }
