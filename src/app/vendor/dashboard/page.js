@@ -3,21 +3,35 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Filter, Eye, Settings2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import EditFieldsPanel from '@/components/EditFieldsPanel';
-import { getRequests } from '@/lib/store';
 
 const STATUS_CLASSES = { 'Pending Submission':'status-pending', 'Submitted':'status-submitted', 'Closed':'status-closed', 'Cancelled':'status-cancelled', 'Rejected':'status-rejected' };
 const ALL_FIELDS = [{ key:'plant', label:'Plant' }, { key:'noOfItems', label:'No. Of Items' }, { key:'pliName', label:'PLI Name' }, { key:'requestDate', label:'Requested Date' }, { key:'status', label:'Status' }];
 
 export default function VendorDashboard() {
   const router = useRouter();
-  const [requests, setRequests] = useState([]);
+  const [allRequests, setAllRequests] = useState([]);
+  const [filteredRequests, setFilteredRequests] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [showFieldsPanel, setShowFieldsPanel] = useState(false);
   const [visibleFields, setVisibleFields] = useState(ALL_FIELDS.map(f => f.key));
-  const [filters, setFilters] = useState({ plant:'', noOfItems:'', pliName:'', requestDate:'', status:'' });
+  const [filters, setFilters] = useState({ plant:'', pliName:'', status:'' });
   const [page, setPage] = useState(1);
   const rowsPerPage = 25;
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = (vendorCode) => {
+    setLoading(true);
+    fetch('/api/vendor/pli?vendorCode=' + vendorCode)
+      .then(r => r.json())
+      .then(data => {
+        const reqs = data.requests || [];
+        setAllRequests(reqs);
+        setFilteredRequests(reqs);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  };
 
   useEffect(() => {
     try {
@@ -25,23 +39,32 @@ export default function VendorDashboard() {
       if (raw) {
         const parsed = JSON.parse(decodeURIComponent(raw.split('=').slice(1).join('=')));
         setUser(parsed);
-        const allReqs = getRequests();
-        setRequests(allReqs.filter(r => r.vendorCode === parsed.vendorCode));
+        loadData(parsed.vendorCode);
+      } else {
+        setLoading(false);
       }
-    } catch {}
+    } catch {
+      setLoading(false);
+    }
   }, []);
 
   const handleSearch = () => {
-    if (!user) return;
-    let filtered = getRequests().filter(r => r.vendorCode === user.vendorCode);
+    let filtered = [...allRequests];
     if (filters.plant) filtered = filtered.filter(r => r.plant === filters.plant);
     if (filters.pliName) filtered = filtered.filter(r => r.pliName.toLowerCase().includes(filters.pliName.toLowerCase()));
     if (filters.status) filtered = filtered.filter(r => r.status === filters.status);
-    setRequests(filtered);
+    setFilteredRequests(filtered);
+    setPage(1);
   };
 
-  const totalPages = Math.ceil(requests.length / rowsPerPage) || 1;
-  const paginatedRequests = requests.slice((page-1)*rowsPerPage, page*rowsPerPage);
+  const handleReset = () => {
+    setFilters({ plant:'', pliName:'', status:'' });
+    setFilteredRequests(allRequests);
+    setPage(1);
+  };
+
+  const totalPages = Math.ceil(filteredRequests.length / rowsPerPage) || 1;
+  const paginatedRequests = filteredRequests.slice((page-1)*rowsPerPage, page*rowsPerPage);
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
@@ -59,7 +82,7 @@ export default function VendorDashboard() {
             <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-600"><option value="">Status</option><option>Pending Submission</option><option>Submitted</option><option>Closed</option><option>Rejected</option></select>
             <div className="flex gap-2 items-center">
               <button onClick={handleSearch} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Search</button>
-              <button onClick={() => { setFilters({plant:'',noOfItems:'',pliName:'',requestDate:'',status:''}); if (user) { setRequests(getRequests().filter(r => r.vendorCode === user.vendorCode)); } }} className="px-4 py-2 text-sm font-medium text-red-500">Reset</button>
+              <button onClick={handleReset} className="px-4 py-2 text-sm font-medium text-red-500">Reset</button>
             </div>
           </div>
         </div>
@@ -69,7 +92,8 @@ export default function VendorDashboard() {
           <table className="w-full data-table">
             <thead><tr>{ALL_FIELDS.filter(f => visibleFields.includes(f.key)).map(f => (<th key={f.key}>{f.label}</th>))}<th className="w-16"></th></tr></thead>
             <tbody>
-              {paginatedRequests.map(req => (
+              {loading && (<tr><td colSpan={visibleFields.length+1} className="text-center py-10"><div className="animate-spin w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"/></td></tr>)}
+              {!loading && paginatedRequests.map(req => (
                 <tr key={req.id}>
                   {visibleFields.includes('plant') && <td>{req.plant}</td>}
                   {visibleFields.includes('noOfItems') && <td>{req.noOfItems}</td>}
@@ -79,13 +103,13 @@ export default function VendorDashboard() {
                   <td><button onClick={() => router.push(`/vendor/pli/review?id=${req.id}`)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="View"><Eye size={16}/></button></td>
                 </tr>
               ))}
-              {paginatedRequests.length === 0 && (<tr><td colSpan={visibleFields.length+1} className="text-center py-10 text-slate-400">No records found</td></tr>)}
+              {!loading && paginatedRequests.length === 0 && (<tr><td colSpan={visibleFields.length+1} className="text-center py-10 text-slate-400">No records found</td></tr>)}
             </tbody>
           </table>
         </div>
         <div className="flex items-center justify-end gap-4 px-5 py-3 border-t border-slate-100 text-xs text-slate-500">
           <span>Rows per page: {rowsPerPage}</span>
-          <span>{requests.length > 0 ? (page-1)*rowsPerPage+1 : 0}-{Math.min(page*rowsPerPage, requests.length)} of {requests.length}</span>
+          <span>{filteredRequests.length > 0 ? (page-1)*rowsPerPage+1 : 0}-{Math.min(page*rowsPerPage, filteredRequests.length)} of {filteredRequests.length}</span>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(1)} disabled={page===1} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronsLeft size={14}/></button>
             <button onClick={() => setPage(p => p-1)} disabled={page===1} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronLeft size={14}/></button>
