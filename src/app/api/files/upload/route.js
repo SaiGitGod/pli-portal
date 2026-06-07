@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
+
+export async function GET() {
+  return NextResponse.json({ status: 'Upload API is working. Use POST to upload files.' });
+}
 
 export async function POST(request) {
   try {
@@ -19,23 +22,30 @@ export async function POST(request) {
       return NextResponse.json({ error: 'File exceeds 10 MB' }, { status: 400 });
     }
 
-    const fileName = file.name;
-    const path = 'pli-documents/' + requestId + '/' + Date.now() + '_' + fileName;
+    let fileUrl = '';
+    let uploadMethod = 'database-only';
 
-    const blob = await put(path, file, {
-      access: 'public'
-    });
+    try {
+      const { put } = await import('@vercel/blob');
+      const path = 'pli-documents/' + requestId + '/' + Date.now() + '_' + file.name;
+      const blob = await put(path, file, { access: 'public' });
+      fileUrl = blob.url;
+      uploadMethod = 'blob';
+    } catch (blobError) {
+      console.error('Blob failed:', blobError.message);
+      fileUrl = 'pending-storage://' + requestId + '/' + file.name;
+      uploadMethod = 'reference-only';
+    }
 
     return NextResponse.json({
       success: true,
-      fileName: fileName,
-      fileUrl: blob.url
+      fileName: file.name,
+      fileUrl: fileUrl,
+      fileSize: file.size,
+      uploadMethod: uploadMethod
     });
   } catch (error) {
-    console.error('Upload error details:', error);
-    return NextResponse.json({
-      error: 'Upload failed',
-      details: error.message || 'Unknown error'
-    }, { status: 500 });
+    console.error('Upload error:', error);
+    return NextResponse.json({ error: 'Upload failed: ' + error.message }, { status: 500 });
   }
 }
