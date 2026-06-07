@@ -23,6 +23,7 @@ export async function GET() {
         rejected_by TEXT,
         rejection_comment TEXT,
         rejection_date TEXT,
+        submitted_file_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
