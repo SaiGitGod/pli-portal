@@ -44,7 +44,7 @@ function VendorReviewContent() {
         setSignedFile(null);
       }
     } catch (err) {
-      alert('Upload failed: ' + (data?.error || 'Unknown error. Please try again.'));
+      alert('Upload failed: ' + err.message);
       setSignedFile(null);
     }
     setUploading(false);
