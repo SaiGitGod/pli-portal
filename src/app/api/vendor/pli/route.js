@@ -13,11 +13,12 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { requestId, comment, fileName } = body;
+    const { requestId, comment, fileName, fileUrl } = body;
     const req = await updateRequestStatus(requestId, 'Submitted', {
       submittedFileName: fileName || 'Signed Document.pdf',
       submittedDate: new Date().toISOString().split('T')[0],
-      vendorComment: comment
+      vendorComment: comment,
+      submittedFileUrl: fileUrl || ''
     });
     if (req) {
       await sendVendorSubmissionEmail({
