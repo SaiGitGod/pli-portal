@@ -86,7 +86,7 @@ function VendorReviewContent() {
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 max-w-md">
               <FileText size={20} className="text-slate-400"/>
               <span className="text-sm text-slate-700 flex-1">Annexure Vendor Sample.docx</span>
-              <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Download"><Download size={16}/></button>
+              <a href="/api/annexure" download="Annexure_Vendor_Sample.pdf" className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Download"><Download size={16}/></a>
             </div>
           </div>
 
