@@ -88,7 +88,8 @@ export default function BuyerPLIDashboard() {
       });
       const merged = [...newRequests, ...allRequests];
       updateRequests(merged);
-      showNotif(`${newRequests.length} PLI request(s) created from ${rows.length} items in "${file.name}".`);
+      showNotif(`${newRequests.length} PLI request(s) created from ${rows.length} items in "${file.name}". Sending emails...`);
+      fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pli-created', requests: newRequests, buyerName: buyerName }) }).then(res => res.json()).then(data => { if (data.success) showNotif(`Emails sent to ${data.results.length} vendor(s) successfully!`); }).catch(() => {});
     } catch (err) { showNotif('Failed to parse Excel. Check format.','error'); }
   };
 
