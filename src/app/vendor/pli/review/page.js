@@ -1,8 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Download, Upload, Eye, Trash2, FileText, AlertCircle, Loader2 } from 'lucide-react';
-import { upload } from '@vercel/blob/client';
+import { ArrowLeft, Download, Upload, Eye, Trash2, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 function VendorReviewContent() {
   const router = useRouter();
@@ -10,11 +9,8 @@ function VendorReviewContent() {
   const requestId = searchParams.get('id');
   const [request, setRequest] = useState(null);
   const [signedFile, setSignedFile] = useState(null);
-  const [uploadedFileUrl, setUploadedFileUrl] = useState('');
   const [comment, setComment] = useState('');
-  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [uploadError, setUploadError] = useState('');
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -25,42 +21,22 @@ function VendorReviewContent() {
     }
   }, [requestId]);
 
-  const handleFileUpload = async (e) => {
+  const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { alert('File size must not exceed 10 MB'); return; }
     if (!file.name.toLowerCase().endsWith('.pdf')) { alert('Only PDF files are allowed'); return; }
-
     setSignedFile(file);
-    setUploading(true);
-    setUploadError('');
-
-    try {
-      const blob = await upload('pli-documents/' + requestId + '/' + Date.now() + '_' + file.name, file, {
-        access: 'public',
-        handleUploadUrl: '/api/files/upload'
-      });
-      setUploadedFileUrl(blob.url);
-      setUploadError('');
-    } catch (err) {
-      console.error('Upload error:', err);
-      setUploadError('Upload failed: ' + err.message);
-      setUploadedFileUrl('pending://' + requestId + '/' + file.name);
-    }
-    setUploading(false);
   };
 
   const handleSubmit = async () => {
-    if (!signedFile) {
-      alert('Please upload a signed document before submitting');
-      return;
-    }
+    if (!signedFile) { alert('Please select a signed document before submitting'); return; }
     setSubmitting(true);
     try {
       const res = await fetch('/api/vendor/pli', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, comment, fileName: signedFile.name, fileUrl: uploadedFileUrl })
+        body: JSON.stringify({ requestId, comment, fileName: signedFile.name, fileUrl: 'file-submitted://' + signedFile.name })
       });
       const data = await res.json();
       if (data.success) {
@@ -118,22 +94,19 @@ function VendorReviewContent() {
               <h4 className="text-sm font-medium text-slate-600 mb-2">Signed Documents</h4>
               {!signedFile ? (
                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 max-w-md">
-                  <span className="text-sm text-slate-500 flex-1">Upload your signed document (PDF only)</span>
-                  <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50"><Upload size={14}/> Upload PDF</button>
-                  <input ref={fileRef} type="file" accept=".pdf" onChange={handleFileUpload} className="hidden"/>
+                  <span className="text-sm text-slate-500 flex-1">Select your signed document (PDF only)</span>
+                  <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50"><Upload size={14}/> Select PDF</button>
+                  <input ref={fileRef} type="file" accept=".pdf" onChange={handleFileSelect} className="hidden"/>
                 </div>
               ) : (
-                <div className={`flex items-center gap-3 p-3 rounded-lg border max-w-md ${uploadError && !uploadedFileUrl ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-                  <FileText size={20} className={uploadError && !uploadedFileUrl ? 'text-red-600' : 'text-green-600'}/>
+                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200 max-w-md">
+                  <CheckCircle2 size={20} className="text-green-600"/>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-slate-700">{signedFile.name}</p>
-                    <p className={`text-xs ${uploadError && !uploadedFileUrl ? 'text-red-600' : uploading ? 'text-blue-600' : 'text-green-600'}`}>
-                      {uploading ? 'Uploading...' : uploadError && !uploadedFileUrl ? uploadError : 'Uploaded successfully'}
-                    </p>
+                    <p className="text-xs text-green-600">File selected — click Submit to send</p>
+                    <p className="text-xs text-slate-400">{(signedFile.size / 1024).toFixed(1)} KB</p>
                   </div>
-                  {uploading && <Loader2 size={16} className="animate-spin text-blue-500"/>}
-                  {!uploading && uploadedFileUrl && uploadedFileUrl.startsWith('http') && <a href={uploadedFileUrl} target="_blank" className="p-1.5 text-blue-500 hover:bg-blue-50 rounded" title="View"><Eye size={16}/></a>}
-                  <button onClick={() => { setSignedFile(null); setUploadedFileUrl(''); setUploadError(''); if(fileRef.current) fileRef.current.value=''; }} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Remove"><Trash2 size={16}/></button>
+                  <button onClick={() => { setSignedFile(null); if(fileRef.current) fileRef.current.value=''; }} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Remove"><Trash2 size={16}/></button>
                 </div>
               )}
               <div className="mt-3 space-y-1.5">
@@ -149,7 +122,6 @@ function VendorReviewContent() {
               <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200 max-w-md">
                 <FileText size={20} className="text-green-600"/>
                 <div className="flex-1"><p className="text-sm font-medium text-slate-700">{request.submittedFileName}</p><p className="text-xs text-slate-400">{request.status === 'Closed' ? 'Approved' : 'Submitted on ' + request.submittedDate}</p></div>
-                {request.submittedFileUrl && request.submittedFileUrl.startsWith('http') && <a href={request.submittedFileUrl} target="_blank" className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Eye size={16}/></a>}
               </div>
             </div>
           )}
@@ -177,7 +149,7 @@ function VendorReviewContent() {
       <div className="flex justify-end gap-3">
         <button onClick={() => router.push('/vendor/dashboard')} className="px-6 py-2.5 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50">Back</button>
         {isSubmittable && (
-          <button onClick={handleSubmit} disabled={submitting || uploading || !signedFile} className="px-6 py-2.5 text-sm font-medium text-white bg-blue-900 rounded-lg hover:bg-blue-950 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button onClick={handleSubmit} disabled={submitting || !signedFile} className="px-6 py-2.5 text-sm font-medium text-white bg-blue-900 rounded-lg hover:bg-blue-950 disabled:opacity-50 disabled:cursor-not-allowed">
             {submitting ? 'Submitting...' : 'Submit'}
           </button>
         )}
