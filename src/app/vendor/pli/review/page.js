@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Download, Upload, Eye, Trash2, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Download, Upload, Trash2, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 function VendorReviewContent() {
   const router = useRouter();
@@ -54,32 +54,70 @@ function VendorReviewContent() {
   if (!request) return (<div className="flex items-center justify-center h-[80vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"/></div>);
 
   const isSubmittable = request.status === 'Pending Submission' || request.status === 'Rejected';
+  const isSubmitted = request.status === 'Submitted';
+  const isClosed = request.status === 'Closed';
+  const isRejected = request.status === 'Rejected';
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
+      {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <button onClick={() => router.push('/vendor/dashboard')} className="p-1.5 hover:bg-slate-200 rounded-lg"><ArrowLeft size={18} className="text-slate-600"/></button>
         <h2 className="font-display text-xl font-bold text-slate-800">PLI Item Review</h2>
-        <span className={`ml-auto status-badge ${request.status === 'Pending Submission' ? 'status-pending' : request.status === 'Submitted' ? 'status-submitted' : request.status === 'Closed' ? 'status-closed' : request.status === 'Rejected' ? 'status-rejected' : ''}`}><span className="w-1.5 h-1.5 rounded-full bg-current"/>{request.status}</span>
+        <span className={`ml-auto status-badge ${request.status === 'Pending Submission' ? 'status-pending' : request.status === 'Submitted' ? 'status-submitted' : request.status === 'Closed' ? 'status-closed' : request.status === 'Rejected' ? 'status-rejected' : request.status === 'Cancelled' ? 'status-cancelled' : ''}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current"/>{request.status}
+        </span>
       </div>
 
+      {/* Status Banner */}
+      {isSubmitted && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <CheckCircle2 size={20} className="text-purple-600"/>
+          <div>
+            <p className="text-sm font-medium text-purple-800">Document Submitted — Awaiting Buyer Review</p>
+            <p className="text-xs text-purple-600">Submitted on {request.submittedDate || 'N/A'} {request.submittedFileName ? ' — File: ' + request.submittedFileName : ''}</p>
+          </div>
+        </div>
+      )}
+      {isClosed && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <CheckCircle2 size={20} className="text-green-600"/>
+          <div>
+            <p className="text-sm font-medium text-green-800">PLI Request Approved — Closed</p>
+            <p className="text-xs text-green-600">{request.submittedFileName ? 'Document: ' + request.submittedFileName : ''}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Line Items */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
         <div className="px-5 py-4 border-b border-slate-200"><h3 className="font-semibold text-sm text-slate-700">Line Items</h3></div>
         <div className="overflow-x-auto">
           <table className="w-full data-table">
-            <thead><tr><th>Plant</th><th>Component (SAP Code)</th><th>Company Name</th><th>Description</th><th>UOM</th><th>Quarter</th><th>Rate (INR)</th></tr></thead>
+            <thead><tr><th>Plant</th><th>Component (SAP Code)</th><th>Company Name</th><th>Component Description</th><th>UOM</th><th>Effective Quarter</th><th>Effective Rate (INR)</th></tr></thead>
             <tbody>
               {request.items.map(item => (
-                <tr key={item.id}><td>{item.plant}</td><td className="font-mono text-xs">{item.componentCode}</td><td>{request.vendorName}</td><td>{item.componentDescription}</td><td>{item.uom}</td><td>{item.effectiveQuarter}</td><td className="font-medium">₹{Number(item.effectiveRate).toLocaleString()}</td></tr>
+                <tr key={item.id}>
+                  <td>{item.plant}</td>
+                  <td className="font-mono text-xs">{item.componentCode}</td>
+                  <td>{request.vendorName}</td>
+                  <td>{item.componentDescription}</td>
+                  <td>{item.uom}</td>
+                  <td>{item.effectiveQuarter}</td>
+                  <td className="font-medium">₹{Number(item.effectiveRate).toLocaleString()}</td>
+                </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
 
+      {/* Documents Section — Always Visible */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
         <div className="px-5 py-4 border-b border-slate-200"><h3 className="font-semibold text-sm text-slate-700">Documents</h3></div>
         <div className="p-5 space-y-5">
+
+          {/* Annexure — Always shown */}
           <div>
             <h4 className="text-sm font-medium text-slate-600 mb-2">Annexure</h4>
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 max-w-md">
@@ -89,6 +127,7 @@ function VendorReviewContent() {
             </div>
           </div>
 
+          {/* Upload Section — Only for Pending/Rejected */}
           {isSubmittable && (
             <div>
               <h4 className="text-sm font-medium text-slate-600 mb-2">Signed Documents</h4>
@@ -116,26 +155,43 @@ function VendorReviewContent() {
             </div>
           )}
 
-          {(request.status === 'Submitted' || request.status === 'Closed') && request.submittedFileName && (
+          {/* Submitted Document Info — For Submitted/Closed */}
+          {(isSubmitted || isClosed) && (
             <div>
-              <h4 className="text-sm font-medium text-slate-600 mb-2">{request.status === 'Closed' ? 'Approved Document' : 'Submitted Document'}</h4>
-              <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200 max-w-md">
-                <FileText size={20} className="text-green-600"/>
-                <div className="flex-1"><p className="text-sm font-medium text-slate-700">{request.submittedFileName}</p><p className="text-xs text-slate-400">{request.status === 'Closed' ? 'Approved' : 'Submitted on ' + request.submittedDate}</p></div>
+              <h4 className="text-sm font-medium text-slate-600 mb-2">Signed Documents</h4>
+              <div className={`flex items-center gap-3 p-3 rounded-lg border max-w-md ${isClosed ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-200'}`}>
+                <FileText size={20} className={isClosed ? 'text-green-600' : 'text-purple-600'}/>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-700">{request.submittedFileName || 'Signed Document.pdf'}</p>
+                  <p className="text-xs text-slate-500">
+                    {isClosed ? 'Approved' : 'Submitted'} on {request.submittedDate || 'N/A'}
+                  </p>
+                </div>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {request.status === 'Rejected' && (
+      {/* Rejection Details — Only for Rejected */}
+      {isRejected && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-slate-200"><h3 className="font-semibold text-sm text-red-600">Rejection Details</h3></div>
-          <table className="w-full data-table"><thead><tr><th>S.No</th><th>Rejected By</th><th>Comments</th><th>Date</th></tr></thead>
-          <tbody><tr><td>1</td><td>{request.rejectedBy || 'Buyer'}</td><td>{request.rejectionComment || 'Please review and resubmit'}</td><td>{request.rejectionDate || '-'}</td></tr></tbody></table>
+          <div className="overflow-x-auto">
+            <table className="w-full data-table">
+              <thead><tr><th>S.No</th><th>Rejected By</th><th>Comments</th><th>Date</th></tr></thead>
+              <tbody><tr>
+                <td>1</td>
+                <td>{request.rejectedBy || 'Buyer'}</td>
+                <td>{request.rejectionComment || 'Please review and resubmit'}</td>
+                <td>{request.rejectionDate || '-'}</td>
+              </tr></tbody>
+            </table>
+          </div>
         </div>
       )}
 
+      {/* Comments — Only for Pending/Rejected */}
       {isSubmittable && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-slate-200"><h3 className="font-semibold text-sm text-slate-700">Comments</h3></div>
@@ -146,6 +202,15 @@ function VendorReviewContent() {
         </div>
       )}
 
+      {/* Vendor Comment — Show if previously submitted with comment */}
+      {(isSubmitted || isClosed) && request.vendorComment && (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-slate-200"><h3 className="font-semibold text-sm text-slate-700">Your Comments</h3></div>
+          <div className="p-5"><p className="text-sm text-slate-600">{request.vendorComment}</p></div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
       <div className="flex justify-end gap-3">
         <button onClick={() => router.push('/vendor/dashboard')} className="px-6 py-2.5 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50">Back</button>
         {isSubmittable && (
