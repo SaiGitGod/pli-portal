@@ -7,7 +7,6 @@ import { Filter, ChevronRight, ChevronDown, Pencil, Trash2, Download, CheckCircl
 import CommentModal from '@/components/CommentModal';
 import ImportExcelModal from '@/components/ImportExcelModal';
 import EditFieldsPanel from '@/components/EditFieldsPanel';
-import { getRequests, saveRequests } from '@/lib/store';
 
 const STATUS_CLASSES = { 'Pending Submission':'status-pending', 'Submitted':'status-submitted', 'Closed':'status-closed', 'Cancelled':'status-cancelled', 'Rejected':'status-rejected' };
 const ALL_FIELDS = [{ key:'id', label:'Request ID' }, { key:'vendorCode', label:'Vendor Code' }, { key:'vendorName', label:'Vendor Name' }, { key:'plant', label:'Plant' }, { key:'noOfItems', label:'No. Of Items' }, { key:'requestDate', label:'Request Date' }, { key:'status', label:'Status' }];
@@ -16,6 +15,7 @@ const REQUIRED_COLUMNS = ['Customer','BU','Plant','Component (BO Code)','Compone
 export default function BuyerPLIDashboard() {
   const router = useRouter();
   const [allRequests, setAllRequests] = useState([]);
+  const [tiles, setTiles] = useState({ all:0, pending:0, submitted:0, closed:0 });
   const [activeTile, setActiveTile] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [showFieldsPanel, setShowFieldsPanel] = useState(false);
@@ -23,41 +23,51 @@ export default function BuyerPLIDashboard() {
   const [commentModal, setCommentModal] = useState({ open:false, title:'', action:null, requestId:null });
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [visibleFields, setVisibleFields] = useState(ALL_FIELDS.map(f=>f.key));
-  const [filters, setFilters] = useState({ requestId:'', vendorCode:'', vendorName:'', plant:'', noOfItems:'', requestDate:'', status:'' });
   const [page, setPage] = useState(1);
   const [notification, setNotification] = useState(null);
   const [buyerName, setBuyerName] = useState('Buyer');
+  const [loading, setLoading] = useState(true);
   const rowsPerPage = 25;
 
-  useEffect(() => { setAllRequests(getRequests()); }, []);
+  const loadData = (tile) => {
+    setLoading(true);
+    fetch(`/api/buyer/pli?tile=${tile || activeTile}`).then(r => r.json()).then(data => {
+      setAllRequests(data.requests || []);
+      setTiles(data.tiles || { all:0, pending:0, submitted:0, closed:0 });
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  };
+
+  useEffect(() => { loadData('all'); }, []);
   useEffect(() => {
     try {
       const raw = document.cookie.split(';').find(c=>c.trim().startsWith('pli-user='));
-      if (raw) { const val = decodeURIComponent(raw.split('=').slice(1).join('=')); setBuyerName(JSON.parse(val).name || 'Buyer'); }
+      if (raw) { setBuyerName(JSON.parse(decodeURIComponent(raw.split('=').slice(1).join('='))).name || 'Buyer'); }
     } catch {}
   }, []);
 
-  const updateRequests = (newRequests) => { setAllRequests(newRequests); saveRequests(newRequests); };
   const showNotif = (message, type='success') => { setNotification({message,type}); setTimeout(()=>setNotification(null), 5000); };
   const toggleExpand = (id) => { const next = new Set(expandedRows); next.has(id)?next.delete(id):next.add(id); setExpandedRows(next); };
+
+  const handleTileClick = (key) => { setActiveTile(key); setPage(1); loadData(key); };
 
   const handleAction = (action, requestId) => {
     if (action === 'edit') { router.push(`/buyer/pli/review?id=${requestId}`); }
     else { setCommentModal({ open:true, title:`${action} PLI Request`, action, requestId }); }
   };
 
-  const handleCommentSubmit = (comment) => {
+  const handleCommentSubmit = async (comment) => {
     const { action, requestId } = commentModal;
-    const updated = allRequests.map(r => {
-      if (r.id !== requestId) return r;
-      let newStatus = r.status;
-      if (action === 'Approve') newStatus = 'Closed';
-      if (action === 'Reject') newStatus = 'Rejected';
-      if (action === 'Cancel') newStatus = 'Cancelled';
-      return { ...r, status: newStatus, items: r.items.map(item => ({ ...item, status: newStatus })) };
-    });
-    updateRequests(updated);
-    showNotif(`Request ${requestId} — ${action} successful! Email notification sent.`);
+    const req = allRequests.find(r => r.id === requestId);
+    try {
+      await fetch('/api/buyer/pli', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, requestId, comment })
+      });
+      showNotif(`Request ${requestId} — ${action} successful! Email sent.`);
+      loadData(activeTile);
+    } catch { showNotif('Action failed. Please try again.', 'error'); }
   };
 
   const handleExcelUpload = async (file) => {
@@ -73,6 +83,7 @@ export default function BuyerPLIDashboard() {
       let hasError = false;
       rows.forEach(row => { REQUIRED_COLUMNS.forEach(col => { if (!row[col] && row[col] !== 0) hasError = true; }); if (row['Price (INR)'] && isNaN(Number(row['Price (INR)']))) hasError = true; });
       if (hasError) { showNotif('Validation failed: All fields mandatory, Price must be numeric.','error'); return; }
+
       const groups = {};
       rows.forEach(row => { const key = `${row['Plant']}_${row['Vendor Code']}`; if (!groups[key]) groups[key] = []; groups[key].push(row); });
       const today = new Date().toISOString().split('T')[0];
@@ -82,32 +93,37 @@ export default function BuyerPLIDashboard() {
         const first = groupRows[0];
         const reqId = `REQ-${today}-${String(counter).padStart(3,'0')}`;
         const pliName = `${first['Customer']}_${first['PLI Quarter']}_${first['BU']}_${counter}`;
-        const items = groupRows.map((row, idx) => ({ id: `ITEM-${Date.now()}-${idx}`, plant: String(row['Plant']), componentCode: String(row['Component (BO Code)']), componentDescription: row['Component Description'], uom: row['Base Unit of Measure'], effectiveQuarter: row['PLI Quarter'], effectiveRate: Number(row['Price (INR)']), status: 'Pending Submission' }));
+        const items = groupRows.map((row, idx) => ({ id: `ITEM-${Date.now()}-${idx}-${counter}`, plant: String(row['Plant']), componentCode: String(row['Component (BO Code)']), componentDescription: row['Component Description'], uom: row['Base Unit of Measure'], effectiveQuarter: row['PLI Quarter'], effectiveRate: Number(row['Price (INR)']), status: 'Pending Submission' }));
         newRequests.push({ id: reqId, vendorCode: String(first['Vendor Code']), vendorName: first['Vendor Name'], plant: String(first['Plant']), noOfItems: items.length, requestDate: today, status: 'Pending Submission', pliName: pliName, customer: first['Customer'], quarter: first['PLI Quarter'], category: first['Purchase Group'], buyerName: buyerName, items: items });
         counter++;
       });
-      const merged = [...newRequests, ...allRequests];
-      updateRequests(merged);
-      showNotif(`${newRequests.length} PLI request(s) created from ${rows.length} items in "${file.name}". Sending emails...`);
-      fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pli-created', requests: newRequests, buyerName: buyerName }) }).then(res => res.json()).then(data => { if (data.success) showNotif(`Emails sent to ${data.results.length} vendor(s) successfully!`); }).catch(() => {});
-    } catch (err) { showNotif('Failed to parse Excel. Check format.','error'); }
+
+      // Save to database
+      await fetch('/api/buyer/pli', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: newRequests })
+      });
+
+      showNotif(`${newRequests.length} PLI request(s) created from ${rows.length} items. Sending emails...`);
+
+      // Send emails
+      fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pli-created', requests: newRequests, buyerName: buyerName }) }).then(res => res.json()).then(data => { if (data.success) showNotif(`Emails sent to vendor(s) successfully!`); }).catch(() => {});
+
+      // Reload data from database
+      loadData(activeTile);
+
+    } catch (err) { console.error(err); showNotif('Failed to parse Excel. Check format.','error'); }
   };
 
-  let displayRequests = [...allRequests];
-  if (activeTile === 'pending') displayRequests = displayRequests.filter(r => r.status === 'Pending Submission' || r.status === 'Rejected');
-  else if (activeTile === 'submitted') displayRequests = displayRequests.filter(r => r.status === 'Submitted');
-  else if (activeTile === 'closed') displayRequests = displayRequests.filter(r => r.status === 'Closed');
-
-  const allCount = allRequests.reduce((s,r)=>s+r.noOfItems, 0);
-  const pendingCount = allRequests.filter(r=>r.status==='Pending Submission'||r.status==='Rejected').reduce((s,r)=>s+r.noOfItems, 0);
-  const submittedCount = allRequests.filter(r=>r.status==='Submitted').reduce((s,r)=>s+r.noOfItems, 0);
-  const closedCount = allRequests.filter(r=>r.status==='Closed').reduce((s,r)=>s+r.noOfItems, 0);
   const tileConfig = [
-    { key:'all', label:'All Items', value:allCount, icon:<ListFilter size={20}/> },
-    { key:'pending', label:'Pending Submissions by Vendors', value:pendingCount, icon:<FileSpreadsheet size={20}/> },
-    { key:'submitted', label:'Submitted by Vendors', value:submittedCount, icon:<CheckCircle size={20}/> },
-    { key:'closed', label:'Closed', value:closedCount, icon:<XCircle size={20}/> }
+    { key:'all', label:'All Items', value:tiles.all, icon:<ListFilter size={20}/> },
+    { key:'pending', label:'Pending Submissions by Vendors', value:tiles.pending, icon:<FileSpreadsheet size={20}/> },
+    { key:'submitted', label:'Submitted by Vendors', value:tiles.submitted, icon:<CheckCircle size={20}/> },
+    { key:'closed', label:'Closed', value:tiles.closed, icon:<XCircle size={20}/> }
   ];
+
+  const displayRequests = allRequests;
   const totalPages = Math.ceil(displayRequests.length/rowsPerPage) || 1;
   const paginatedRequests = displayRequests.slice((page-1)*rowsPerPage, page*rowsPerPage);
 
@@ -119,7 +135,7 @@ export default function BuyerPLIDashboard() {
         <h2 className="font-display text-xl font-bold text-slate-800">Dashboard</h2>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        {tileConfig.map(tile=>(<div key={tile.key} onClick={()=>{setActiveTile(tile.key);setPage(1);}} className={`metric-tile flex items-start gap-3 ${activeTile===tile.key?'active':''}`}><div className="text-slate-400 mt-0.5">{tile.icon}</div><div><p className="text-2xl font-bold text-blue-800">{tile.value}</p><p className="text-xs text-slate-500 font-medium leading-tight">{tile.label}</p></div></div>))}
+        {tileConfig.map(tile=>(<div key={tile.key} onClick={()=>handleTileClick(tile.key)} className={`metric-tile flex items-start gap-3 ${activeTile===tile.key?'active':''}`}><div className="text-slate-400 mt-0.5">{tile.icon}</div><div><p className="text-2xl font-bold text-blue-800">{tile.value}</p><p className="text-xs text-slate-500 font-medium leading-tight">{tile.label}</p></div></div>))}
       </div>
       <div className="flex items-center justify-end gap-2 mb-3 relative">
         <button onClick={()=>setShowFieldsPanel(!showFieldsPanel)} className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50"><Settings2 size={14}/> Fields</button>
@@ -127,14 +143,15 @@ export default function BuyerPLIDashboard() {
         <button onClick={()=>setShowImportModal(true)} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"><FileSpreadsheet size={14}/> Import from Excel</button>
         <EditFieldsPanel fields={ALL_FIELDS} visibleFields={visibleFields} onToggle={key=>setVisibleFields(prev=>prev.includes(key)?prev.filter(f=>f!==key):[...prev,key])} onReset={()=>setVisibleFields(ALL_FIELDS.map(f=>f.key))} onApply={()=>setShowFieldsPanel(false)} isOpen={showFieldsPanel} onClose={()=>setShowFieldsPanel(false)}/>
       </div>
-      {showFilters && (<div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 animate-slide-down"><div className="grid grid-cols-2 md:grid-cols-4 gap-3"><input placeholder="Request ID" value={filters.requestId} onChange={e=>setFilters({...filters,requestId:e.target.value})} className="px-3 py-2 border border-slate-300 rounded-lg text-sm"/><input placeholder="Vendor Code" value={filters.vendorCode} onChange={e=>setFilters({...filters,vendorCode:e.target.value})} className="px-3 py-2 border border-slate-300 rounded-lg text-sm"/><select value={filters.plant} onChange={e=>setFilters({...filters,plant:e.target.value})} className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-600"><option value="">Plant</option><option>1900</option><option>5100</option></select><select value={filters.status} onChange={e=>setFilters({...filters,status:e.target.value})} className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-600"><option value="">Status</option><option>Pending Submission</option><option>Submitted</option><option>Closed</option><option>Cancelled</option></select></div></div>)}
+      {showFilters && (<div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 animate-slide-down"><div className="grid grid-cols-2 md:grid-cols-4 gap-3"><input placeholder="Request ID" className="px-3 py-2 border border-slate-300 rounded-lg text-sm"/><input placeholder="Vendor Code" className="px-3 py-2 border border-slate-300 rounded-lg text-sm"/><select className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-600"><option value="">Plant</option><option>1900</option><option>5100</option></select><select className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-600"><option value="">Status</option><option>Pending Submission</option><option>Submitted</option><option>Closed</option><option>Cancelled</option></select></div></div>)}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full data-table">
             <thead><tr><th className="w-10"></th>{ALL_FIELDS.filter(f=>visibleFields.includes(f.key)).map(f=>(<th key={f.key}>{f.label}</th>))}<th>Actions</th></tr></thead>
             <tbody>
-              {paginatedRequests.length===0 && (<tr><td colSpan={visibleFields.length+2} className="text-center py-10 text-slate-400">No records found</td></tr>)}
-              {paginatedRequests.map(req=>(
+              {loading && (<tr><td colSpan={visibleFields.length+2} className="text-center py-10"><div className="animate-spin w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"/></td></tr>)}
+              {!loading && paginatedRequests.length===0 && (<tr><td colSpan={visibleFields.length+2} className="text-center py-10 text-slate-400">No records found. Upload an Excel to create PLI requests.</td></tr>)}
+              {!loading && paginatedRequests.map(req=>(
                 <React.Fragment key={req.id}>
                   <tr>
                     <td><button onClick={()=>toggleExpand(req.id)} className="p-1 hover:bg-slate-100 rounded">{expandedRows.has(req.id)?<ChevronDown size={14}/>:<ChevronRight size={14}/>}</button></td>
@@ -147,11 +164,11 @@ export default function BuyerPLIDashboard() {
                     {visibleFields.includes('status') && (<td><span className={`status-badge ${STATUS_CLASSES[req.status]||''}`}><span className="w-1.5 h-1.5 rounded-full bg-current"/>{req.status}</span></td>)}
                     <td><div className="flex items-center gap-1">
                       {(req.status==='Pending Submission'||req.status==='Rejected') && (<><button onClick={()=>handleAction('edit',req.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Edit"><Pencil size={14}/></button><button onClick={()=>handleAction('Cancel',req.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Cancel"><Trash2 size={14}/></button></>)}
-                      {req.status==='Submitted' && (<><button className="p-1.5 text-slate-500 hover:bg-slate-100 rounded" title="Download"><Download size={14}/></button><button onClick={()=>handleAction('Approve',req.id)} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Approve"><CheckCircle size={14}/></button><button onClick={()=>handleAction('Reject',req.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Reject"><XCircle size={14}/></button></>)}
-                      {req.status==='Closed' && (<button className="p-1.5 text-slate-500 hover:bg-slate-100 rounded" title="Download"><Download size={14}/></button>)}
+                      {req.status==='Submitted' && (<><button onClick={()=>{ if(req.submittedFileUrl) window.open(req.submittedFileUrl,'_blank'); else alert('No document uploaded by vendor yet.'); }} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded" title="Download Vendor Document"><Download size={14}/></button><button onClick={()=>handleAction('Approve',req.id)} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Approve"><CheckCircle size={14}/></button><button onClick={()=>handleAction('Reject',req.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Reject"><XCircle size={14}/></button></>)}
+                      {req.status==='Closed' && (<button onClick={()=>{ if(req.submittedFileUrl) window.open(req.submittedFileUrl,'_blank'); else alert('No document available.'); }} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded" title="Download"><Download size={14}/></button>)}
                     </div></td>
                   </tr>
-                  {expandedRows.has(req.id) && (<tr><td colSpan={visibleFields.length+2} className="bg-slate-50 p-0"><div className="px-8 py-4 animate-fade-in"><table className="w-full text-sm"><thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left pb-2">Component (SAP Code)</th><th className="text-left pb-2">Description</th><th className="text-left pb-2">UOM</th><th className="text-left pb-2">Quarter</th><th className="text-left pb-2">Buyer</th><th className="text-right pb-2">Rate (INR)</th></tr></thead><tbody>{req.items.map(item=>(<tr key={item.id} className="border-t border-slate-200"><td className="py-2 font-mono text-xs">{item.componentCode}</td><td className="py-2">{item.componentDescription}</td><td className="py-2">{item.uom}</td><td className="py-2">{item.effectiveQuarter}</td><td className="py-2">{req.buyerName}</td><td className="py-2 text-right font-medium">₹{item.effectiveRate.toLocaleString()}</td></tr>))}</tbody></table></div></td></tr>)}
+                  {expandedRows.has(req.id) && (<tr><td colSpan={visibleFields.length+2} className="bg-slate-50 p-0"><div className="px-8 py-4 animate-fade-in"><table className="w-full text-sm"><thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left pb-2">Component (SAP Code)</th><th className="text-left pb-2">Description</th><th className="text-left pb-2">UOM</th><th className="text-left pb-2">Quarter</th><th className="text-left pb-2">Buyer</th><th className="text-right pb-2">Rate (INR)</th></tr></thead><tbody>{req.items.map(item=>(<tr key={item.id} className="border-t border-slate-200"><td className="py-2 font-mono text-xs">{item.componentCode}</td><td className="py-2">{item.componentDescription}</td><td className="py-2">{item.uom}</td><td className="py-2">{item.effectiveQuarter}</td><td className="py-2">{req.buyerName}</td><td className="py-2 text-right font-medium">₹{Number(item.effectiveRate).toLocaleString()}</td></tr>))}</tbody></table></div></td></tr>)}
                 </React.Fragment>
               ))}
             </tbody>
@@ -163,8 +180,8 @@ export default function BuyerPLIDashboard() {
             <button onClick={()=>setPage(1)} disabled={page===1} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronsLeft size={14}/></button>
             <button onClick={()=>setPage(p=>p-1)} disabled={page===1} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronLeft size={14}/></button>
             <button className="w-6 h-6 bg-blue-600 text-white rounded text-xs font-medium">{page}</button>
-            <button onClick={()=>setPage(p=>p+1)} disabled={page===totalPages} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronRight size={14}/></button>
-            <button onClick={()=>setPage(totalPages)} disabled={page===totalPages} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronsRight size={14}/></button>
+            <button onClick={()=>setPage(p=>p+1)} disabled={page>=totalPages} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronRight size={14}/></button>
+            <button onClick={()=>setPage(totalPages)} disabled={page>=totalPages} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronsRight size={14}/></button>
           </div>
         </div>
       </div>
