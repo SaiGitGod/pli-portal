@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getRequestsByVendor, updateRequestStatus } from '@/lib/database';
+import { getRequestsByVendor, getRequestById, updateRequestStatus } from '@/lib/database';
 import { sendVendorSubmissionEmail } from '@/lib/email';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const vendorCode = searchParams.get('vendorCode');
+  const requestId = searchParams.get('requestId');
+
+  if (requestId) {
+    const req = await getRequestById(requestId);
+    return NextResponse.json({ requests: req ? [req] : [] });
+  }
+
   if (!vendorCode) return NextResponse.json({ requests: [] });
   const requests = await getRequestsByVendor(vendorCode);
   return NextResponse.json({ requests });
