@@ -103,6 +103,16 @@ export async function getDashboardData() {
   const totalBOCodes = requests.reduce((s, r) => s + r.noOfItems, 0);
   const pendingSubmissions = requests.filter(r => r.status === 'Pending Submission' || r.status === 'Rejected').reduce((s, r) => s + r.noOfItems, 0);
   const activePLI = new Set(requests.filter(r => r.status !== 'Closed' && r.status !== 'Cancelled').map(r => r.pliName)).size;
+  let avgDaysClosure = 0;
+  const closedRequests = requests.filter(r => r.status === 'Closed' && r.submittedDate && r.requestDate);
+  if (closedRequests.length > 0) {
+    const totalDays = closedRequests.reduce((sum, r) => {
+      const start = new Date(r.requestDate);
+      const end = new Date(r.submittedDate);
+      return sum + Math.max(0, Math.round((end - start) / (1000 * 60 * 60 * 24)));
+    }, 0);
+    avgDaysClosure = Math.round(totalDays / closedRequests.length);
+  }
 
   const pliMap = {};
   requests.forEach(r => { if (!pliMap[r.pliName]) pliMap[r.pliName] = []; pliMap[r.pliName].push(r); });
@@ -140,7 +150,7 @@ export async function getDashboardData() {
   });
 
   return {
-    summary: { totalPLI, totalBOCodes, avgDaysClosure: 31, pendingSubmissions, activePLI },
+    summary: { totalPLI, totalBOCodes, avgDaysClosure, pendingSubmissions, activePLI },
     pliStatus: [{ name: 'Approved', value: approvedPLI, color: '#22c55e' }, { name: 'Pending', value: pendingPLI, color: '#eab308' }, { name: 'Cancelled', value: cancelledPLI, color: '#ef4444' }],
     categorySummary: Object.entries(catMap).map(e => ({ name: e[0], Approved: e[1].approved, Pending: e[1].pending, Cancelled: e[1].cancelled })),
     pliSummary,
