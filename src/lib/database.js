@@ -24,6 +24,7 @@ export async function getAllRequests() {
     req.rejectedBy = req.rejected_by;
     req.rejectionComment = req.rejection_comment;
     req.rejectionDate = req.rejection_date;
+    req.submittedFileUrl = req.submitted_file_url;
   }
   return requests;
 }
@@ -60,7 +61,7 @@ export async function updateRequestStatus(id, newStatus, extraData) {
   await sql`UPDATE pli_requests SET status = ${newStatus} WHERE id = ${id}`;
   await sql`UPDATE pli_items SET status = ${newStatus} WHERE request_id = ${id}`;
   if (extraData) {
-    if (extraData.submittedFileName) await sql`UPDATE pli_requests SET submitted_file_name = ${extraData.submittedFileName}, submitted_date = ${extraData.submittedDate}, vendor_comment = ${extraData.vendorComment || ''} WHERE id = ${id}`;
+    if (extraData.submittedFileName) await sql`UPDATE pli_requests SET submitted_file_name = ${extraData.submittedFileName}, submitted_date = ${extraData.submittedDate}, vendor_comment = ${extraData.vendorComment || ''}, submitted_file_url = ${extraData.submittedFileUrl || ''} WHERE id = ${id}`;
     if (extraData.rejectedBy) await sql`UPDATE pli_requests SET rejected_by = ${extraData.rejectedBy}, rejection_comment = ${extraData.rejectionComment || ''}, rejection_date = ${extraData.rejectionDate || ''} WHERE id = ${id}`;
   }
   return await getRequestById(id);
