@@ -1,57 +1,37 @@
 import { NextResponse } from 'next/server';
-import { pliRequests, users } from '@/data/mockData';
+import { getRequestsByVendor, updateRequestStatus } from '@/lib/database';
 import { sendVendorSubmissionEmail } from '@/lib/email';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const vendorCode = searchParams.get('vendorCode');
-  const plant = searchParams.get('plant');
-  const pliName = searchParams.get('pliName');
-  const status = searchParams.get('status');
-  const requestId = searchParams.get('requestId');
-
-  let filtered = [...pliRequests];
-
-  if (vendorCode) filtered = filtered.filter(r => r.vendorCode === vendorCode);
-  if (plant) filtered = filtered.filter(r => r.plant === plant);
-  if (pliName) filtered = filtered.filter(r => r.pliName.toLowerCase().includes(pliName.toLowerCase()));
-  if (status) filtered = filtered.filter(r => r.status === status);
-  if (requestId) filtered = filtered.filter(r => r.id === requestId);
-
-  return NextResponse.json({ requests: filtered });
+  if (!vendorCode) return NextResponse.json({ requests: [] });
+  const requests = await getRequestsByVendor(vendorCode);
+  return NextResponse.json({ requests });
 }
 
 export async function POST(request) {
   try {
     const body = await request.json();
     const { requestId, comment, fileName } = body;
-
-    const pliRequest = pliRequests.find(r => r.id === requestId);
-    if (!pliRequest) {
-      return NextResponse.json({ error: 'Request not found' }, { status: 404 });
-    }
-
-    // Update status to Submitted
-    pliRequest.status = 'Submitted';
-    pliRequest.items.forEach(item => { item.status = 'Submitted'; });
-
-    // Send email to buyer
-    const buyer = users.find(u => u.role === 'buyer');
-    if (buyer) {
+    const req = await updateRequestStatus(requestId, 'Submitted', {
+      submittedFileName: fileName || 'Signed Document.pdf',
+      submittedDate: new Date().toISOString().split('T')[0],
+      vendorComment: comment
+    });
+    if (req) {
       await sendVendorSubmissionEmail({
-        buyerEmail: buyer.username,
-        buyerName: buyer.name,
-        vendorName: pliRequest.vendorName,
-        pliName: pliRequest.pliName,
-        requestId,
+        buyerEmail: 'saikrishna.k333@gmail.com',
+        buyerName: 'Buyer',
+        vendorName: req.vendorName,
+        pliName: req.pliName,
+        requestId
       });
     }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Document submitted successfully. Email sent to buyer.',
-    });
+    return NextResponse.json({ success: true, message: 'Submitted and email sent' });
   } catch (error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';
