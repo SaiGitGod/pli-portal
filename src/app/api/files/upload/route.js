@@ -5,7 +5,7 @@ export async function POST(request) {
   try {
     const formData = await request.formData();
     const file = formData.get('file');
-    const requestId = formData.get('requestId');
+    const requestId = formData.get('requestId') || 'unknown';
     const fileType = formData.get('fileType') || 'signed-document';
 
     if (!file) {
@@ -21,17 +21,17 @@ export async function POST(request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const folder = `pli-documents/${requestId}/${fileType}`;
-    const result = await uploadFile(buffer, file.name, folder);
+    const folder = 'pli-documents/' + requestId + '/' + fileType;
 
-    return NextResponse.json({
-      success: true,
-      fileName: result.fileName,
-      fileUrl: result.url,
-      message: 'File uploaded successfully'
-    });
+    try {
+      const result = await uploadFile(buffer, file.name, folder);
+      return NextResponse.json({ success: true, fileName: result.fileName, fileUrl: result.url });
+    } catch (uploadErr) {
+      console.error('Upload to blob failed:', uploadErr);
+      return NextResponse.json({ error: 'Storage upload failed: ' + uploadErr.message }, { status: 500 });
+    }
   } catch (error) {
-    console.error('Upload error:', error);
-    return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+    console.error('Upload route error:', error);
+    return NextResponse.json({ error: 'Server error: ' + error.message }, { status: 500 });
   }
 }
