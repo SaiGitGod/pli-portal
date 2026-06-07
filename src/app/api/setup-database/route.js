@@ -4,6 +4,18 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   try {
     await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL,
+        name TEXT NOT NULL,
+        vendor_code TEXT,
+        vendor_name TEXT
+      )
+    `;
+
+    await sql`
       CREATE TABLE IF NOT EXISTS pli_requests (
         id TEXT PRIMARY KEY,
         vendor_code TEXT NOT NULL,
@@ -60,6 +72,14 @@ export async function GET() {
       )
     `;
 
+    // Insert default users if empty
+    const existingUsers = await sql`SELECT COUNT(*) as count FROM users`;
+    if (parseInt(existingUsers.rows[0].count) === 0) {
+      await sql`INSERT INTO users (id, username, password, role, name) VALUES ('buyer1', 'buyer@varroc.com', 'buyer123', 'buyer', 'Buyer')`;
+      await sql`INSERT INTO users (id, username, password, role, name, vendor_code, vendor_name) VALUES ('vendor1', 'Abhishek.Jain1@varroc.com', 'vendor123', 'vendor', 'Abhishek Jain', 'VAR001', 'Abhishek Jain')`;
+      await sql`INSERT INTO users (id, username, password, role, name, vendor_code, vendor_name) VALUES ('vendor2', 'Sreedhar.Viswas@varroc.com', 'vendor123', 'vendor', 'Sreedhar Viswas', 'VAR002', 'Sreedhar Viswas')`;
+    }
+
     // Insert default vendors if empty
     const existingVendors = await sql`SELECT COUNT(*) as count FROM vendors`;
     if (parseInt(existingVendors.rows[0].count) === 0) {
@@ -76,7 +96,7 @@ export async function GET() {
       await sql`INSERT INTO purchase_group_buyers (purchase_group, category_name, buyer_email, buyer_name) VALUES ('SM&F', 'SM&F', 'SaiKrishna.Kodipaka@varroc.com', 'Sai Krishna Kodipaka')`;
     }
 
-    return NextResponse.json({ success: true, message: 'Database tables created successfully!' });
+    return NextResponse.json({ success: true, message: 'All database tables created and default data inserted!' });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
