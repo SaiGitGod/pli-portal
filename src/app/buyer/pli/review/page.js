@@ -2,7 +2,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Search } from 'lucide-react';
-import { getRequests, saveRequests } from '@/lib/store';
 
 function ReviewContent() {
   const router = useRouter();
@@ -11,37 +10,33 @@ function ReviewContent() {
   const [request, setRequest] = useState(null);
   const [editedRates, setEditedRates] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
-  const [buyerName, setBuyerName] = useState('Buyer');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const allRequests = getRequests();
-    const found = allRequests.find(r => r.id === requestId);
-    if (found) {
-      setRequest(found);
-      const rates = {};
-      found.items.forEach(item => { rates[item.id] = item.effectiveRate; });
-      setEditedRates(rates);
-    }
-    try {
-      const raw = document.cookie.split(';').find(c => c.trim().startsWith('pli-user='));
-      if (raw) { setBuyerName(JSON.parse(decodeURIComponent(raw.split('=').slice(1).join('='))).name || 'Buyer'); }
-    } catch {}
+    fetch(`/api/buyer/pli?tile=all`).then(r => r.json()).then(data => {
+      const found = (data.requests || []).find(r => r.id === requestId);
+      if (found) {
+        setRequest(found);
+        const rates = {};
+        found.items.forEach(item => { rates[item.id] = item.effectiveRate; });
+        setEditedRates(rates);
+      }
+    });
   }, [requestId]);
 
-  const handleSave = () => {
-    const allRequests = getRequests();
-    const updated = allRequests.map(r => {
-      if (r.id !== requestId) return r;
-      return { ...r, items: r.items.map(item => ({ ...item, effectiveRate: editedRates[item.id] !== undefined ? editedRates[item.id] : item.effectiveRate })) };
+  const handleSave = async () => {
+    setSaving(true);
+    await fetch('/api/buyer/pli', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'edit', requestId, rates: editedRates })
     });
-    saveRequests(updated);
-    alert('Effective rates updated and saved! Email sent to Vendor and Category Manager.');
+    setSaving(false);
+    alert('Effective rates updated! Email sent to Vendor and Category Manager.');
     router.push('/buyer/pli');
   };
 
-  if (!request) {
-    return (<div className="flex items-center justify-center h-[80vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"/></div>);
-  }
+  if (!request) return (<div className="flex items-center justify-center h-[80vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"/></div>);
 
   const filteredItems = request.items.filter(item =>
     item.componentCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -72,12 +67,7 @@ function ReviewContent() {
                   <td>{item.componentDescription}</td>
                   <td>{item.uom}</td>
                   <td>{item.effectiveQuarter}</td>
-                  <td>
-                    <div className="flex items-center gap-1 justify-end">
-                      <span className="text-slate-400">₹</span>
-                      <input type="number" value={editedRates[item.id] || ''} onChange={e => setEditedRates({ ...editedRates, [item.id]: parseFloat(e.target.value) || 0 })} className="w-28 px-3 py-1.5 border border-slate-200 bg-slate-50 rounded-lg text-sm font-medium text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"/>
-                    </div>
-                  </td>
+                  <td><div className="flex items-center gap-1 justify-end"><span className="text-slate-400">₹</span><input type="number" value={editedRates[item.id] || ''} onChange={e => setEditedRates({ ...editedRates, [item.id]: parseFloat(e.target.value) || 0 })} className="w-28 px-3 py-1.5 border border-slate-200 bg-slate-50 rounded-lg text-sm font-medium text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"/></div></td>
                 </tr>
               ))}
             </tbody>
@@ -90,16 +80,12 @@ function ReviewContent() {
       </div>
       <div className="flex justify-end gap-3 mt-5">
         <button onClick={() => router.push('/buyer/pli')} className="px-6 py-2.5 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
-        <button onClick={handleSave} className="px-6 py-2.5 text-sm font-medium text-white bg-blue-900 rounded-lg hover:bg-blue-950">Save & Send Request</button>
+        <button onClick={handleSave} disabled={saving} className="px-6 py-2.5 text-sm font-medium text-white bg-blue-900 rounded-lg hover:bg-blue-950 disabled:opacity-50">{saving ? 'Saving...' : 'Save & Send Request'}</button>
       </div>
     </div>
   );
 }
 
 export default function BuyerReviewPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-[80vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"/></div>}>
-      <ReviewContent/>
-    </Suspense>
-  );
+  return (<Suspense fallback={<div className="flex items-center justify-center h-[80vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"/></div>}><ReviewContent/></Suspense>);
 }
