@@ -2,9 +2,21 @@ import { sql } from '@vercel/postgres';
 
 export async function getAllRequests() {
   const { rows: requests } = await sql`SELECT * FROM pli_requests ORDER BY created_at DESC`;
+  const { rows: allItems } = await sql`SELECT * FROM pli_items`;
+
+  const itemsByRequest = {};
+  for (const item of allItems) {
+    if (!itemsByRequest[item.request_id]) itemsByRequest[item.request_id] = [];
+    itemsByRequest[item.request_id].push({
+      id: item.id, plant: item.plant, componentCode: item.component_code,
+      componentDescription: item.component_description, uom: item.uom,
+      effectiveQuarter: item.effective_quarter, effectiveRate: parseFloat(item.effective_rate),
+      status: item.status
+    });
+  }
+
   for (const req of requests) {
-    const { rows: items } = await sql`SELECT * FROM pli_items WHERE request_id = ${req.id}`;
-    req.items = items.map(item => ({ id: item.id, plant: item.plant, componentCode: item.component_code, componentDescription: item.component_description, uom: item.uom, effectiveQuarter: item.effective_quarter, effectiveRate: parseFloat(item.effective_rate), status: item.status }));
+    req.items = itemsByRequest[req.id] || [];
     req.vendorCode = req.vendor_code;
     req.vendorName = req.vendor_name;
     req.noOfItems = req.no_of_items;
