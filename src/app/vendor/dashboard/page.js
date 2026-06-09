@@ -1,124 +1,181 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Filter, Eye, Settings2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import EditFieldsPanel from '@/components/EditFieldsPanel';
+import { sql } from '@vercel/postgres';
 
-const STATUS_CLASSES = { 'Pending Submission':'status-pending', 'Submitted':'status-submitted', 'Closed':'status-closed', 'Cancelled':'status-cancelled', 'Rejected':'status-rejected' };
-const ALL_FIELDS = [{ key:'plant', label:'Plant' }, { key:'noOfItems', label:'No. Of Items' }, { key:'pliName', label:'PLI Name' }, { key:'requestDate', label:'Requested Date' }, { key:'status', label:'Status' }];
+export async function getAllRequests() {
+  const { rows: requests } = await sql`SELECT * FROM pli_requests ORDER BY created_at DESC`;
+  const { rows: allItems } = await sql`SELECT * FROM pli_items`;
 
-export default function VendorDashboard() {
-  const router = useRouter();
-  const [allRequests, setAllRequests] = useState([]);
-  const [filteredRequests, setFilteredRequests] = useState([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [showFieldsPanel, setShowFieldsPanel] = useState(false);
-  const [visibleFields, setVisibleFields] = useState(ALL_FIELDS.map(f => f.key));
-  const [filters, setFilters] = useState({ plant:'', pliName:'', status:'' });
-  const [page, setPage] = useState(1);
-  const rowsPerPage = 25;
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const itemsByRequest = {};
+  for (const item of allItems) {
+    if (!itemsByRequest[item.request_id]) itemsByRequest[item.request_id] = [];
+    itemsByRequest[item.request_id].push({
+      id: item.id, plant: item.plant, componentCode: item.component_code,
+      componentDescription: item.component_description, uom: item.uom,
+      effectiveQuarter: item.effective_quarter, effectiveRate: parseFloat(item.effective_rate),
+      status: item.status
+    });
+  }
 
-  const loadData = (vendorCode) => {
-    setLoading(true);
-    fetch('/api/vendor/pli?vendorCode=' + vendorCode)
-      .then(r => r.json())
-      .then(data => {
-        const reqs = data.requests || [];
-        setAllRequests(reqs);
-        setFilteredRequests(reqs);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  };
+  for (const req of requests) {
+    req.items = itemsByRequest[req.id] || [];
+    req.vendorCode = req.vendor_code;
+    req.vendorName = req.vendor_name;
+    req.noOfItems = req.no_of_items;
+    req.requestDate = req.request_date;
+    req.pliName = req.pli_name;
+    req.buyerName = req.buyer_name;
+    req.submittedFileName = req.submitted_file_name;
+    req.submittedDate = req.submitted_date;
+    req.vendorComment = req.vendor_comment;
+    req.rejectedBy = req.rejected_by;
+    req.rejectionComment = req.rejection_comment;
+    req.rejectionDate = req.rejection_date;
+    req.submittedFileUrl = req.submitted_file_url;
+  }
+  return requests;
+}
 
-  useEffect(() => {
-    try {
-      const raw = document.cookie.split(';').find(c => c.trim().startsWith('pli-user='));
-      if (raw) {
-        const parsed = JSON.parse(decodeURIComponent(raw.split('=').slice(1).join('=')));
-        setUser(parsed);
-        loadData(parsed.vendorCode);
-      } else {
-        setLoading(false);
-      }
-    } catch {
-      setLoading(false);
+export async function getRequestById(id) {
+  const all = await getAllRequests();
+  return all.find(r => r.id === id) || null;
+}
+
+export async function getRequestsByVendor(vendorCode) {
+  const all = await getAllRequests();
+  return all.filter(r => r.vendorCode === vendorCode);
+}
+
+export async function getRequestsByStatus(status) {
+  const all = await getAllRequests();
+  if (status === 'pending') return all.filter(r => r.status === 'Pending Submission' || r.status === 'Rejected');
+  if (status === 'submitted') return all.filter(r => r.status === 'Submitted');
+  if (status === 'closed') return all.filter(r => r.status === 'Closed');
+  return all;
+}
+
+export async function addRequests(newRequests) {
+  for (const req of newRequests) {
+    await sql`INSERT INTO pli_requests (id, vendor_code, vendor_name, plant, no_of_items, request_date, status, pli_name, customer, quarter, category, buyer_name) VALUES (${req.id}, ${req.vendorCode}, ${req.vendorName}, ${req.plant}, ${req.noOfItems}, ${req.requestDate}, ${req.status}, ${req.pliName}, ${req.customer}, ${req.quarter}, ${req.category}, ${req.buyerName})`;
+    for (const item of req.items) {
+      await sql`INSERT INTO pli_items (id, request_id, plant, component_code, component_description, uom, effective_quarter, effective_rate, status) VALUES (${item.id}, ${req.id}, ${item.plant}, ${item.componentCode}, ${item.componentDescription}, ${item.uom}, ${item.effectiveQuarter}, ${item.effectiveRate}, ${item.status})`;
     }
-  }, []);
+  }
+  return await getAllRequests();
+}
 
-  const handleSearch = () => {
-    let filtered = [...allRequests];
-    if (filters.plant) filtered = filtered.filter(r => r.plant === filters.plant);
-    if (filters.pliName) filtered = filtered.filter(r => r.pliName.toLowerCase().includes(filters.pliName.toLowerCase()));
-    if (filters.status) filtered = filtered.filter(r => r.status === filters.status);
-    setFilteredRequests(filtered);
-    setPage(1);
+export async function updateRequestStatus(id, newStatus, extraData) {
+  await sql`UPDATE pli_requests SET status = ${newStatus} WHERE id = ${id}`;
+  await sql`UPDATE pli_items SET status = ${newStatus} WHERE request_id = ${id}`;
+  if (extraData) {
+    if (extraData.submittedFileName) await sql`UPDATE pli_requests SET submitted_file_name = ${extraData.submittedFileName}, submitted_date = ${extraData.submittedDate}, vendor_comment = ${extraData.vendorComment || ''}, submitted_file_url = ${extraData.submittedFileUrl || ''} WHERE id = ${id}`;
+    if (extraData.rejectedBy) await sql`UPDATE pli_requests SET rejected_by = ${extraData.rejectedBy}, rejection_comment = ${extraData.rejectionComment || ''}, rejection_date = ${extraData.rejectionDate || ''} WHERE id = ${id}`;
+  }
+  return await getRequestById(id);
+}
+
+export async function updateRequestItems(id, updatedRates) {
+  for (const [itemId, rate] of Object.entries(updatedRates)) {
+    await sql`UPDATE pli_items SET effective_rate = ${rate} WHERE id = ${itemId}`;
+  }
+  return await getRequestById(id);
+}
+
+export async function getVendor(vendorCode) {
+  const { rows } = await sql`SELECT * FROM vendors WHERE vendor_code = ${vendorCode}`;
+  if (rows.length === 0) return null;
+  return { vendorCode: rows[0].vendor_code, vendorName: rows[0].vendor_name, email: rows[0].email, contactPerson: rows[0].contact_person };
+}
+
+export async function getAllVendors() {
+  const { rows } = await sql`SELECT * FROM vendors`;
+  return rows.map(r => ({ vendorCode: r.vendor_code, vendorName: r.vendor_name, email: r.email, contactPerson: r.contact_person }));
+}
+
+export async function getBuyer(purchaseGroup) {
+  const { rows } = await sql`SELECT * FROM purchase_group_buyers WHERE purchase_group = ${purchaseGroup}`;
+  if (rows.length === 0) return { purchaseGroup, categoryName: purchaseGroup, buyerEmail: 'SaiKrishna.Kodipaka@varroc.com', buyerName: 'Sai Krishna Kodipaka' };
+  return { purchaseGroup: rows[0].purchase_group, categoryName: rows[0].category_name, buyerEmail: rows[0].buyer_email, buyerName: rows[0].buyer_name };
+}
+
+export async function getDashboardData() {
+  const requests = await getAllRequests();
+  const totalPLI = new Set(requests.map(r => r.pliName)).size;
+  const totalBOCodes = requests.reduce((s, r) => s + r.noOfItems, 0);
+  const pendingSubmissions = requests.filter(r => r.status === 'Pending Submission' || r.status === 'Rejected').reduce((s, r) => s + r.noOfItems, 0);
+  const activePLI = new Set(requests.filter(r => r.status !== 'Closed' && r.status !== 'Cancelled').map(r => r.pliName)).size;
+  let avgDaysClosure = 0;
+  const closedRequests = requests.filter(r => r.status === 'Closed' && r.submittedDate && r.requestDate);
+  if (closedRequests.length > 0) {
+    const totalDays = closedRequests.reduce((sum, r) => { const start = new Date(r.requestDate); const end = new Date(r.submittedDate); return sum + Math.max(0, Math.round((end - start) / (1000 * 60 * 60 * 24))); }, 0);
+    avgDaysClosure = Math.round(totalDays / closedRequests.length);
+  }
+  const pliMap = {};
+  requests.forEach(r => { if (!pliMap[r.pliName]) pliMap[r.pliName] = []; pliMap[r.pliName].push(r); });
+  let approvedPLI = 0, pendingPLI = 0, cancelledPLI = 0;
+  Object.values(pliMap).forEach(group => {
+    const statuses = group.map(r => r.status);
+    if (statuses.some(s => s === 'Pending Submission' || s === 'Submitted' || s === 'Rejected')) pendingPLI++;
+    else if (statuses.every(s => s === 'Cancelled')) cancelledPLI++;
+    else if (statuses.some(s => s === 'Closed')) approvedPLI++;
+  });
+  const catMap = {};
+  requests.forEach(r => {
+    if (!catMap[r.category]) catMap[r.category] = { approved: 0, pending: 0, cancelled: 0 };
+    if (r.status === 'Closed') catMap[r.category].approved += r.noOfItems;
+    else if (r.status === 'Cancelled') catMap[r.category].cancelled += r.noOfItems;
+    else catMap[r.category].pending += r.noOfItems;
+  });
+  const pliSummary = Object.entries(pliMap).map(([name, group]) => ({
+    name, totalParts: group.reduce((s, r) => s + r.noOfItems, 0),
+    approved: group.filter(r => r.status === 'Closed').reduce((s, r) => s + r.noOfItems, 0),
+    cancelled: group.filter(r => r.status === 'Cancelled').reduce((s, r) => s + r.noOfItems, 0),
+    pending: group.filter(r => r.status !== 'Closed' && r.status !== 'Cancelled').reduce((s, r) => s + r.noOfItems, 0),
+    startDate: group[0].requestDate
+  }));
+  const vMap = {};
+  requests.forEach(r => {
+    if (!vMap[r.vendorCode]) vMap[r.vendorCode] = { vendorCode: r.vendorCode, totalParts: 0, approved: 0, cancelled: 0, pending: 0 };
+    vMap[r.vendorCode].totalParts += r.noOfItems;
+    if (r.status === 'Closed') vMap[r.vendorCode].approved += r.noOfItems;
+    else if (r.status === 'Cancelled') vMap[r.vendorCode].cancelled += r.noOfItems;
+    else vMap[r.vendorCode].pending += r.noOfItems;
+  });
+  return {
+    summary: { totalPLI, totalBOCodes, avgDaysClosure, pendingSubmissions, activePLI },
+    pliStatus: [{ name: 'Approved', value: approvedPLI, color: '#22c55e' }, { name: 'Pending', value: pendingPLI, color: '#eab308' }, { name: 'Cancelled', value: cancelledPLI, color: '#ef4444' }],
+    categorySummary: Object.entries(catMap).map(e => ({ name: e[0], Approved: e[1].approved, Pending: e[1].pending, Cancelled: e[1].cancelled })),
+    pliSummary,
+    vendorSummary: Object.values(vMap)
   };
+}
 
-  const handleReset = () => {
-    setFilters({ plant:'', pliName:'', status:'' });
-    setFilteredRequests(allRequests);
-    setPage(1);
+export async function getTileCounts() {
+  const requests = await getAllRequests();
+  return {
+    all: requests.reduce((s, r) => s + r.noOfItems, 0),
+    pending: requests.filter(r => r.status === 'Pending Submission' || r.status === 'Rejected').reduce((s, r) => s + r.noOfItems, 0),
+    submitted: requests.filter(r => r.status === 'Submitted').reduce((s, r) => s + r.noOfItems, 0),
+    closed: requests.filter(r => r.status === 'Closed').reduce((s, r) => s + r.noOfItems, 0)
   };
+}
 
-  const totalPages = Math.ceil(filteredRequests.length / rowsPerPage) || 1;
-  const paginatedRequests = filteredRequests.slice((page-1)*rowsPerPage, page*rowsPerPage);
+export async function getUserByCredentials(username, password, role) {
+  const { rows } = await sql`SELECT * FROM users WHERE username = ${username} AND password = ${password} AND role = ${role}`;
+  if (rows.length === 0) return null;
+  const u = rows[0];
+  return { id: u.id, username: u.username, role: u.role, name: u.name, vendorCode: u.vendor_code, vendorName: u.vendor_name };
+}
 
-  return (
-    <div className="p-6 max-w-[1200px] mx-auto">
-      <h2 className="font-display text-xl font-bold text-slate-800 mb-5">Dashboard</h2>
-      <div className="flex items-center justify-end gap-2 mb-3 relative">
-        <button onClick={() => setShowFieldsPanel(!showFieldsPanel)} className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50"><Settings2 size={14}/> Fields</button>
-        <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg ${showFilters ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-300 hover:bg-slate-50'}`}><Filter size={14}/></button>
-        <EditFieldsPanel fields={ALL_FIELDS} visibleFields={visibleFields} onToggle={key => setVisibleFields(prev => prev.includes(key) ? prev.filter(f => f !== key) : [...prev, key])} onReset={() => setVisibleFields(ALL_FIELDS.map(f => f.key))} onApply={() => setShowFieldsPanel(false)} isOpen={showFieldsPanel} onClose={() => setShowFieldsPanel(false)}/>
-      </div>
-      {showFilters && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 animate-slide-down">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <select value={filters.plant} onChange={e => setFilters({...filters, plant: e.target.value})} className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-600"><option value="">Plant</option><option>1900</option><option>5100</option></select>
-            <input placeholder="PLI Name" value={filters.pliName} onChange={e => setFilters({...filters, pliName: e.target.value})} className="px-3 py-2 border border-slate-300 rounded-lg text-sm"/>
-            <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-600"><option value="">Status</option><option>Pending Submission</option><option>Submitted</option><option>Closed</option><option>Rejected</option></select>
-            <div className="flex gap-2 items-center">
-              <button onClick={handleSearch} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Search</button>
-              <button onClick={handleReset} className="px-4 py-2 text-sm font-medium text-red-500">Reset</button>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full data-table">
-            <thead><tr>{ALL_FIELDS.filter(f => visibleFields.includes(f.key)).map(f => (<th key={f.key}>{f.label}</th>))}<th className="w-16"></th></tr></thead>
-            <tbody>
-              {loading && (<tr><td colSpan={visibleFields.length+1} className="text-center py-10"><div className="animate-spin w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"/></td></tr>)}
-              {!loading && paginatedRequests.map(req => (
-                <tr key={req.id}>
-                  {visibleFields.includes('plant') && <td>{req.plant}</td>}
-                  {visibleFields.includes('noOfItems') && <td>{req.noOfItems}</td>}
-                  {visibleFields.includes('pliName') && <td className="font-medium">{req.pliName}</td>}
-                  {visibleFields.includes('requestDate') && <td>{req.requestDate}</td>}
-                  {visibleFields.includes('status') && (<td><span className={`status-badge ${STATUS_CLASSES[req.status]||''}`}><span className="w-1.5 h-1.5 rounded-full bg-current"/>{req.status}</span></td>)}
-                  <td><button onClick={() => router.push(`/vendor/pli/review?id=${req.id}`)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="View"><Eye size={16}/></button></td>
-                </tr>
-              ))}
-              {!loading && paginatedRequests.length === 0 && (<tr><td colSpan={visibleFields.length+1} className="text-center py-10 text-slate-400">No records found</td></tr>)}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-end gap-4 px-5 py-3 border-t border-slate-100 text-xs text-slate-500">
-          <span>Rows per page: {rowsPerPage}</span>
-          <span>{filteredRequests.length > 0 ? (page-1)*rowsPerPage+1 : 0}-{Math.min(page*rowsPerPage, filteredRequests.length)} of {filteredRequests.length}</span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setPage(1)} disabled={page===1} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronsLeft size={14}/></button>
-            <button onClick={() => setPage(p => p-1)} disabled={page===1} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronLeft size={14}/></button>
-            <button className="w-6 h-6 bg-blue-600 text-white rounded text-xs font-medium">{page}</button>
-            <button onClick={() => setPage(p => p+1)} disabled={page>=totalPages} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronRight size={14}/></button>
-            <button onClick={() => setPage(totalPages)} disabled={page>=totalPages} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronsRight size={14}/></button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+export async function getAllUsers() {
+  const { rows } = await sql`SELECT id, username, role, name, vendor_code, vendor_name FROM users ORDER BY role, name`;
+  return rows.map(u => ({ id: u.id, username: u.username, role: u.role, name: u.name, vendorCode: u.vendor_code, vendorName: u.vendor_name }));
+}
+
+export async function addUser(id, username, password, role, name, vendorCode, vendorName) {
+  await sql`INSERT INTO users (id, username, password, role, name, vendor_code, vendor_name) VALUES (${id}, ${username}, ${password}, ${role}, ${name}, ${vendorCode || null}, ${vendorName || null})`;
+  return { id, username, role, name, vendorCode, vendorName };
+}
+
+export async function deleteUser(id) {
+  await sql`DELETE FROM users WHERE id = ${id}`;
+  return { success: true };
 }
