@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { uploadFile } from '@/lib/fileStorage';
+import { put } from '@vercel/blob';
 
 export async function POST(request) {
   try {
@@ -11,14 +11,18 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await uploadFile(buffer, file.name, 'vendor-docs/' + requestId);
+    const blob = await put('vendor-docs/' + requestId + '/' + Date.now() + '_' + file.name, file, {
+      access: 'public',
+    });
 
-    return NextResponse.json({ success: true, url: result.url, fileName: result.fileName });
+    return NextResponse.json({ success: true, url: blob.url, fileName: file.name });
   } catch (error) {
-    console.error('Upload error:', error);
     return NextResponse.json({ error: 'Upload failed: ' + error.message }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ status: 'Upload route is working', hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN });
 }
 
 export const dynamic = 'force-dynamic';
