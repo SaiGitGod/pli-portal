@@ -11,6 +11,7 @@ function VendorReviewContent() {
   const [signedFile, setSignedFile] = useState(null);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -33,10 +34,33 @@ function VendorReviewContent() {
     if (!signedFile) { alert('Please select a signed document before submitting'); return; }
     setSubmitting(true);
     try {
+      // Step 1: Upload the actual PDF file
+      setUploadProgress('Uploading document...');
+      const formData = new FormData();
+      formData.append('file', signedFile);
+      formData.append('requestId', requestId);
+
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json();
+
+      if (!uploadData.success) {
+        alert('File upload failed: ' + (uploadData.error || 'Unknown error'));
+        setSubmitting(false);
+        setUploadProgress('');
+        return;
+      }
+
+      // Step 2: Submit the request with the real file URL
+      setUploadProgress('Submitting request...');
       const res = await fetch('/api/vendor/pli', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, comment, fileName: signedFile.name, fileUrl: 'file-submitted://' + signedFile.name })
+        body: JSON.stringify({
+          requestId,
+          comment,
+          fileName: uploadData.fileName,
+          fileUrl: uploadData.url
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -49,6 +73,7 @@ function VendorReviewContent() {
       alert('Submission failed: ' + err.message);
     }
     setSubmitting(false);
+    setUploadProgress('');
   };
 
   if (!request) return (<div className="flex items-center justify-center h-[80vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"/></div>);
@@ -167,6 +192,9 @@ function VendorReviewContent() {
                     {isClosed ? 'Approved' : 'Submitted'} on {request.submittedDate || 'N/A'}
                   </p>
                 </div>
+                {request.submittedFileUrl && (
+                  <a href={request.submittedFileUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Download"><Download size={16}/></a>
+                )}
               </div>
             </div>
           )}
@@ -215,7 +243,7 @@ function VendorReviewContent() {
         <button onClick={() => router.push('/vendor/dashboard')} className="px-6 py-2.5 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50">Back</button>
         {isSubmittable && (
           <button onClick={handleSubmit} disabled={submitting || !signedFile} className="px-6 py-2.5 text-sm font-medium text-white bg-blue-900 rounded-lg hover:bg-blue-950 disabled:opacity-50 disabled:cursor-not-allowed">
-            {submitting ? 'Submitting...' : 'Submit'}
+            {submitting ? uploadProgress || 'Submitting...' : 'Submit'}
           </button>
         )}
       </div>
